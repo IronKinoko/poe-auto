@@ -4,6 +4,7 @@ import time
 import random
 import functools
 
+
 def timeit_func(log_fn=print):
     def deco(func):
         @functools.wraps(func)
@@ -134,16 +135,13 @@ def screenshot_pyautogui(left, top, width, height, out):
     return img
 
 
-def click(point):
+def click(point, ctrl=False, Right=False):
     pyautogui.moveTo(point)
-    pyautogui.click()
-
-
-def ctrl_click(point):
-    pyautogui.keyDown("ctrl")
-    click(point)
-    pyautogui.keyUp("ctrl")
-
+    if ctrl:
+        pyautogui.keyDown("ctrl")
+    pyautogui.click(button="right" if Right else "left")
+    if ctrl:
+        pyautogui.keyUp("ctrl")
 
 def toScreenPoint(offset, region):
     """将区域内坐标转换为屏幕坐标"""
@@ -153,4 +151,3 @@ def toScreenPoint(offset, region):
         left + x + w / 2 + random.randint(-3, 3),
         top + y + h / 2 + random.randint(-3, 3),
     )
-
