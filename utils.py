@@ -143,9 +143,10 @@ def screenshot_pyautogui(left, top, width, height, out):
 
 
 def click(point, ctrl=False, right=False):
+    pyautogui.moveTo(point)
     if ctrl:
         pyautogui.keyDown("ctrl")
-    pyautogui.click(point, button="right" if right else "left")
+    pyautogui.click(button="right" if right else "left")
     if ctrl:
         pyautogui.keyUp("ctrl")
 
