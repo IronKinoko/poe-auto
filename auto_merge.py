@@ -161,7 +161,7 @@ def auto_merge_delirium():
         point = find_image_in_region(
             (245, 1300, 860, 260),
             template,
-            threshold=0.7,
+            threshold=0.8,
             debug_out_name="currency_box_bottom",
             loop_check=True,
             timeout=1,
