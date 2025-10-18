@@ -3,6 +3,10 @@ import pyautogui
 import time
 import random
 import functools
+import sys
+from PIL import Image
+
+DEBUG = "--debug" in sys.argv
 
 
 def timeit_func(log_fn=print):
@@ -26,7 +30,9 @@ def ensure_dir(path):
         os.makedirs(d, exist_ok=True)
 
 
-def find_template_in_pil(pil_image, template, threshold=0.8, debug_out=None):
+def _find_template_in_pil(
+    pil_image: Image.Image, template: Image.Image, threshold=0.8, debug_out=None
+):
     try:
         import cv2
         import numpy as np
@@ -105,49 +111,91 @@ def find_template_in_pil(pil_image, template, threshold=0.8, debug_out=None):
     left, top = int(top_left[0]), int(top_left[1])
     w, h = tw, th
 
-    # if debug_out:
-    #     vis = cv2.cvtColor(np.array(pil_image.convert("RGB")), cv2.COLOR_RGB2BGR)
-    #     cv2.rectangle(vis, (left, top), (left + w, top + h), (0, 255, 255), 2)
-    #     score_text = f"{max_val:.3f}"
-    #     cv2.putText(
-    #         vis,
-    #         score_text,
-    #         (left, max(top - 8, 0)),
-    #         cv2.FONT_HERSHEY_SIMPLEX,
-    #         0.6,
-    #         (0, 255, 255),
-    #         2,
-    #         cv2.LINE_AA,
-    #     )
-    #     ensure_dir(debug_out)
-    #     cv2.imwrite(debug_out, vis)
-    #     print(f"Saved debug image -> {debug_out} (max_val={max_val})")
+    if DEBUG and debug_out:
+        vis = cv2.cvtColor(np.array(pil_image.convert("RGB")), cv2.COLOR_RGB2BGR)
+        cv2.rectangle(vis, (left, top), (left + w, top + h), (0, 255, 255), 2)
+        score_text = f"{max_val:.3f}"
+        cv2.putText(
+            vis,
+            score_text,
+            (left, max(top - 8, 0)),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.6,
+            (0, 255, 255),
+            2,
+            cv2.LINE_AA,
+        )
+        ensure_dir(debug_out)
+        cv2.imwrite(debug_out, vis)
+        print(f"Saved debug image -> {debug_out} (max_val={max_val})")
 
-    return (left, top, w, h, float(max_val))
+    return (left, top, w, h)
 
 
 def screenshot_pyautogui(left, top, width, height, out):
     img = pyautogui.screenshot(region=(left, top, width, height))
 
-    # ensure_dir(out)
-    # img.save(out)
+    if DEBUG and out:
+        ensure_dir(out)
+        img.save(out)
 
     return img
 
 
-def click(point, ctrl=False, Right=False):
-    pyautogui.moveTo(point)
+def click(point, ctrl=False, right=False):
     if ctrl:
         pyautogui.keyDown("ctrl")
-    pyautogui.click(button="right" if Right else "left")
+    pyautogui.click(point, button="right" if right else "left")
     if ctrl:
         pyautogui.keyUp("ctrl")
 
-def toScreenPoint(offset, region):
+
+def to_screen_point(offset, region):
     """将区域内坐标转换为屏幕坐标"""
     x, y = offset
-    left, top, w, h, _ = region
+    left, top, w, h = region
     return (
         left + x + w / 2 + random.randint(-3, 3),
         top + y + h / 2 + random.randint(-3, 3),
     )
+
+
+def find_image_in_region(
+    region: tuple[int, int, int, int] | None,
+    image: Image.Image,
+    threshold=0.8,
+    debug_out_name=None,
+    loop_check=False,
+    check_interval=0.1,
+    timeout=5.0,
+):
+    ensure_dir("tmp")
+    debug_screenshot_out = f"tmp/{debug_out_name}_screenshot.png"
+    debug_find_out = f"tmp/{debug_out_name}_find.png"
+    region = region or (0, 0, pyautogui.size().width, pyautogui.size().height)
+    left, top, width, height = region
+
+    def _detect_once():
+        screenshot = screenshot_pyautogui(
+            left, top, width, height, debug_screenshot_out
+        )
+        result = _find_template_in_pil(
+            screenshot, image, threshold=threshold, debug_out=debug_find_out
+        )
+        return to_screen_point((region[0], region[1]), result) if result else None
+
+    if loop_check:
+        return until(_detect_once, check_interval, timeout)
+    else:
+        return _detect_once()
+
+
+def until(fn, check_interval=0.1, timeout=10.0):
+    start_time = time.time()
+    while True:
+        res = fn()
+        if res:
+            return res
+        if time.time() - start_time > timeout:
+            return None
+        time.sleep(check_interval)
