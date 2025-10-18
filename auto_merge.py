@@ -17,9 +17,7 @@ def auto_merge(template: Image.Image = None):
     if template is None:
         template = screenshot_pyautogui(967, 1391, 34, 34, "tmp/template.png")
     btn_template = Image.open("./assets/hecheng.png").convert("RGB")
-    empty_result_template = screenshot_pyautogui(
-        1244, 818, 20, 20, "tmp/empty_result_template.png"
-    )
+    empty_result_template = Image.open("./assets/hecheng.png").convert("RGB")
 
     _count = 0
     start = time.time()
@@ -31,11 +29,11 @@ def auto_merge(template: Image.Image = None):
             print(f"------ diff: {diff:.2f}s  sum: {(now - start):.2f}s ------")
 
         # 检查是否可以合成
-        empty_result = screenshot_pyautogui(1244, 818, 20, 20, "tmp/empty_result.png")
+        empty_result = screenshot_pyautogui(1190, 750, 140, 140, "tmp/empty_result.png")
         findTargetRegion = find_template_in_pil(
             empty_result,
             empty_result_template,
-            threshold=0.95,
+            threshold=0.8,
             debug_out="tmp/empty_result_debug.png",
         )
         if not findTargetRegion:
@@ -76,7 +74,7 @@ def add_material_from_bag(template: Image.Image):
 
 
 def ensure_is_login():
-    pyautogui.moveTo(100,100)
+    pyautogui.moveTo(100, 100)
     sct = pyautogui.screenshot()
     login_template = Image.open("./assets/login.png").convert("RGB")
     findTargetRegion = find_template_in_pil(
@@ -92,7 +90,7 @@ def ensure_is_login():
     click(point)
     print("登录 at:", point)
 
-    pyautogui.moveTo(100,100)
+    pyautogui.moveTo(100, 100)
 
     login_step2_template = Image.open("./assets/login_step2.png").convert("RGB")
     while True:
@@ -156,42 +154,77 @@ def auto_merge_delirium():
         print("仓库 at:", point)
         time.sleep(3)
 
-        sct = pyautogui.screenshot()
-        miwu_box = Image.open("./assets/miwu_box.png").convert("RGB")
+        sct = screenshot_pyautogui(0, 0, 1300, 350, "tmp/box_top.png")
+        currency_box = Image.open("./assets/currency_box.png").convert("RGB")
         findTargetRegion = find_template_in_pil(
             sct,
-            miwu_box,
+            currency_box,
             threshold=0.7,
-            debug_out="tmp/miwu_box_debug.png",
+            debug_out="tmp/currency_box_debug.png",
         )
         if not findTargetRegion:
-            print("未找到迷雾箱，结束")
+            print("未找到通货箱，结束")
             break
         point = toScreenPoint((0, 0), findTargetRegion)
         click(point)
-        print("迷雾箱 at:", point)
-        time.sleep(1)
+        print("通货箱 at:", point)
+        time.sleep(0.5)
 
-        box = screenshot_pyautogui(325, 673, 681, 276, "tmp/box.png")
+        box = screenshot_pyautogui(245, 1300, 860, 260, "tmp/box.png")
         findTargetRegion = find_template_in_pil(
             box,
             template,
             threshold=0.7,
             debug_out="tmp/box_debug.png",
         )
-        if not findTargetRegion:
+        if findTargetRegion:
+            point = toScreenPoint((245, 1300), findTargetRegion)
+            # 存
+            click((2600, 1240), ctrl=True, Right=True)
+            time.sleep(0.5)
+            # 取
+            click(point, ctrl=True, Right=True)
+            time.sleep(0.5)
+        else:
             print("仓库内无素材，结束")
             break
-        point = toScreenPoint((325, 673), findTargetRegion)
-        # 存
-        click((2600, 1240), ctrl=True, Right=True)
-        time.sleep(1)
-        # 取
-        click(point, ctrl=True, Right=True)
-        time.sleep(1)
+
+        # sct = screenshot_pyautogui(0, 0, 1300, 350, "tmp/box_top.png")
+        # miwu_box = Image.open("./assets/miwu_box.png").convert("RGB")
+        # findTargetRegion = find_template_in_pil(
+        #     sct,
+        #     miwu_box,
+        #     threshold=0.7,
+        #     debug_out="tmp/miwu_box_debug.png",
+        # )
+        # if not findTargetRegion:
+        #     print("未找到迷雾箱，结束")
+        #     break
+        # point = toScreenPoint((0, 0), findTargetRegion)
+        # click(point)
+        # print("迷雾箱 at:", point)
+        # time.sleep(1)
+
+        # box = screenshot_pyautogui(325, 673, 681, 276, "tmp/box.png")
+        # findTargetRegion = find_template_in_pil(
+        #     box,
+        #     template,
+        #     threshold=0.7,
+        #     debug_out="tmp/box_debug.png",
+        # )
+        # if not findTargetRegion:
+        #     print("仓库内无素材，结束")
+        #     break
+        # point = toScreenPoint((325, 673), findTargetRegion)
+        # # 存
+        # click((2600, 1240), ctrl=True, Right=True)
+        # time.sleep(0.5)
+        # # 取
+        # click(point, ctrl=True, Right=True)
+        # time.sleep(0.5)
 
         pyautogui.press("esc")
-        time.sleep(1)
+        time.sleep(0.5)
 
         sct = pyautogui.screenshot()
         chongzhu_template = Image.open("./assets/chongzhu.png").convert("RGB")
