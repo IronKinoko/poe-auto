@@ -9,14 +9,15 @@ from PIL import Image
 DEBUG = "--debug" in sys.argv
 
 
-def timeit_func(log_fn=print):
+def time_it(log_fn=print):
     def deco(func):
         @functools.wraps(func)
         def wrapper(*args, **kwargs):
             t0 = time.perf_counter()
             res = func(*args, **kwargs)
             t1 = time.perf_counter()
-            log_fn(f"{func.__name__} took {t1-t0:.6f}s")
+            if DEBUG:
+                log_fn(f"{func.__name__} took {t1-t0:.6f}s")
             return res
 
         return wrapper
@@ -30,6 +31,7 @@ def ensure_dir(path):
         os.makedirs(d, exist_ok=True)
 
 
+@time_it()
 def _find_template_in_pil(
     pil_image: Image.Image, template: Image.Image, threshold=0.8, debug_out=None
 ):
@@ -40,79 +42,54 @@ def _find_template_in_pil(
         print("需要 opencv-python 和 numpy 用于模板匹配：", e)
         raise
 
-    tpl = cv2.cvtColor(np.array(template.convert("RGB")), cv2.COLOR_RGB2BGR)
-
-    # 提取 alpha（如果有），并把模板变成 3 通道 BGR
-    mask = None
-    if tpl.ndim == 3 and tpl.shape[2] == 4:
-        alpha = tpl[:, :, 3]
-        mask = (alpha > 0).astype(np.uint8) * 255
-        tpl = tpl[:, :, :3]
-    elif tpl.ndim == 2:
-        tpl = cv2.cvtColor(tpl, cv2.COLOR_GRAY2BGR)
-
-    # PIL -> BGR (OpenCV 使用 BGR)
+    # PIL -> BGR
     img_bgr = cv2.cvtColor(np.array(pil_image.convert("RGB")), cv2.COLOR_RGB2BGR)
+    tpl_bgr = cv2.cvtColor(np.array(template.convert("RGB")), cv2.COLOR_RGB2BGR)
 
-    # 如果模板比截图大，直接返回 None
+    # 处理透明通道（mask）
+    mask = None
+    if tpl_bgr.ndim == 3 and tpl_bgr.shape[2] == 4:
+        alpha = tpl_bgr[:, :, 3]
+        mask = (alpha > 0).astype(np.uint8) * 255
+        tpl_bgr = tpl_bgr[:, :, :3]
+    elif tpl_bgr.ndim == 2:
+        tpl_bgr = cv2.cvtColor(tpl_bgr, cv2.COLOR_GRAY2BGR)
+
+    # 尺寸检查
     ih, iw = img_bgr.shape[:2]
-    th, tw = tpl.shape[:2]
+    th, tw = tpl_bgr.shape[:2]
     if th > ih or tw > iw:
         return None
 
-    # 转到 LAB 色彩空间以获得对颜色感知更稳健的结果
+    # 转到 LAB 色彩空间（对颜色感知更准确）
     try:
-        img_cs = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2Lab)
-        tpl_cs = cv2.cvtColor(tpl, cv2.COLOR_BGR2Lab)
+        img_lab = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2Lab)
+        tpl_lab = cv2.cvtColor(tpl_bgr, cv2.COLOR_BGR2Lab)
     except Exception:
-        # 回退到 BGR（极少出现）
-        img_cs = img_bgr.copy()
-        tpl_cs = tpl.copy()
+        img_lab = img_bgr.copy()
+        tpl_lab = tpl_bgr.copy()
 
-    # 转为 float32 并归一化到 [0,1]
-    img_cs = img_cs.astype(np.float32) / 255.0
-    tpl_cs = tpl_cs.astype(np.float32) / 255.0
-
-    # 固定等权通道（保持不改变接口）
-    weights = [1.0 / 3.0, 1.0 / 3.0, 1.0 / 3.0]
-
-    # 选择匹配方法：优先 TM_CCOEFF_NORMED（对去均值敏感，通常更鲁棒）
-    # 若存在 mask，会尝试使用 TM_CCORR_NORMED 并传入 mask（部分 OpenCV 版本支持）
-    res = None
-    use_mask = mask is not None
-    for c in range(3):
-        img_ch = (img_cs[:, :, c] * 255).astype(np.uint8)
-        tpl_ch = (tpl_cs[:, :, c] * 255).astype(np.uint8)
-
+    if mask is not None:
+        # 带 mask 的匹配（支持透明背景）
         try:
-            if use_mask and mask is not None:
-                # 一些 OpenCV 版本支持在 matchTemplate 中传入 mask（TM_CCORR_NORMED 支持）
-                res_c = cv2.matchTemplate(
-                    img_ch, tpl_ch, cv2.TM_CCORR_NORMED, mask=mask
-                )
-            else:
-                res_c = cv2.matchTemplate(img_ch, tpl_ch, cv2.TM_CCOEFF_NORMED)
+            res = cv2.matchTemplate(img_lab, tpl_lab, cv2.TM_CCORR_NORMED, mask=mask)
         except TypeError:
-            # 某些版本的 Python 绑定不接受 mask 参数，回退到无 mask 的方法
-            res_c = cv2.matchTemplate(img_ch, tpl_ch, cv2.TM_CCOEFF_NORMED)
+            # 旧版本 OpenCV 不支持 mask，回退到普通匹配
+            res = cv2.matchTemplate(img_lab, tpl_lab, cv2.TM_CCOEFF_NORMED)
+    else:
+        # 标准匹配
+        res = cv2.matchTemplate(img_lab, tpl_lab, cv2.TM_CCOEFF_NORMED)
 
-        if res is None:
-            res = weights[c] * res_c
-        else:
-            res = res + weights[c] * res_c
-
-    # 查找最佳匹配
     min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(res)
 
     if max_val < threshold:
         return None
 
-    top_left = max_loc
-    left, top = int(top_left[0]), int(top_left[1])
+    left, top = max_loc
     w, h = tw, th
 
     if DEBUG and debug_out:
-        vis = cv2.cvtColor(np.array(pil_image.convert("RGB")), cv2.COLOR_RGB2BGR)
+        vis = img_bgr.copy()
         cv2.rectangle(vis, (left, top), (left + w, top + h), (0, 255, 255), 2)
         score_text = f"{max_val:.3f}"
         cv2.putText(
@@ -132,7 +109,7 @@ def _find_template_in_pil(
     return (left, top, w, h)
 
 
-def screenshot_pyautogui(left, top, width, height, out):
+def _screenshot_pyautogui(left, top, width, height, out):
     img = pyautogui.screenshot(region=(left, top, width, height))
 
     if DEBUG and out:
@@ -140,6 +117,37 @@ def screenshot_pyautogui(left, top, width, height, out):
         img.save(out)
 
     return img
+
+
+_MSS_INSTANCE = None
+
+
+def _get_mss_instance():
+    global _MSS_INSTANCE
+    if _MSS_INSTANCE is None:
+        import mss
+
+        _MSS_INSTANCE = mss.mss()
+    return _MSS_INSTANCE
+
+
+def _screenshot_mss(left, top, width, height, out):
+    sct = _get_mss_instance()  # 复用实例，提升性能
+    monitor = {"left": left, "top": top, "width": width, "height": height}
+    sct_img = sct.grab(monitor)
+    # 修正颜色格式
+    img = Image.frombytes("RGB", sct_img.size, sct_img.bgra, "raw", "BGRX")
+
+    if DEBUG and out:
+        ensure_dir(out)
+        img.save(out)  # 直接用 PIL 保存
+
+    return img
+
+
+@time_it()
+def screenshot(left, top, width, height, out):
+    return _screenshot_mss(left, top, width, height, out)
 
 
 def click(point, ctrl=False, right=False):
@@ -177,11 +185,9 @@ def find_image_in_region(
     left, top, width, height = region
 
     def _detect_once():
-        screenshot = screenshot_pyautogui(
-            left, top, width, height, debug_screenshot_out
-        )
+        sct = screenshot(left, top, width, height, debug_screenshot_out)
         result = _find_template_in_pil(
-            screenshot, image, threshold=threshold, debug_out=debug_find_out
+            sct, image, threshold=threshold, debug_out=debug_find_out
         )
         return to_screen_point((region[0], region[1]), result) if result else None
 

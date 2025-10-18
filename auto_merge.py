@@ -14,7 +14,7 @@ def auto_merge(template: Image.Image = None):
 
     pyautogui.PAUSE = 0.025
 
-    template = template or screenshot_pyautogui(967, 1391, 34, 34, "tmp/template.png")
+    template = template or screenshot(967, 1391, 34, 34, "tmp/template.png")
     btn_template = Image.open("./assets/hecheng.png").convert("RGB")
     empty_result_template = Image.open("./assets/hecheng.png").convert("RGB")
 
@@ -119,7 +119,7 @@ def ensure_is_login():
 
 
 def auto_merge_delirium():
-    template = screenshot_pyautogui(967, 1391, 34, 34, "tmp/template.png")
+    template = screenshot(967, 1391, 34, 34, "tmp/template.png")
     click((900, 900))
     while True:
         auto_merge(template)
