@@ -227,7 +227,19 @@ def auto_merge_delirium():
             print("未找到重铸，结束")
             break
         click(point)
-        time.sleep(3)
+        
+        
+        chongzhu_top_template = Image.open("./assets/chongzhu_top.png").convert("RGB")
+        point = find_image_in_region(
+            None,
+            chongzhu_top_template,
+            threshold=0.5,
+            debug_out_name="chongzhu_top",
+            loop_check=True,
+        )
+        if not point:
+            print("未找到重铸界面，结束")
+            break
 
         for i in range(3):
             add_material_from_bag(template)
