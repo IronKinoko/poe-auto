@@ -231,3 +231,28 @@ def until(fn, check_interval=0.1, timeout=10.0):
         if time.time() - start_time > timeout:
             return None
         time.sleep(check_interval)
+
+
+_worker = None
+
+
+def work_in_process(fn):
+    from multiprocessing import Process
+
+    def starter():
+        global _worker
+        _worker = Process(target=fn, daemon=True)
+        _worker.start()
+
+    return starter
+
+
+def stop_worker():
+    global _worker
+    if _worker:
+        _worker.terminate()
+        _worker.join(timeout=5)
+        _worker = None
+        print("Worker process stopped.")
+    else:
+        print("No worker process to stop.")
