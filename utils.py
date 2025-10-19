@@ -106,30 +106,33 @@ def _find_template_in_pil(
     # 查找最佳匹配
     min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(res)
 
-    if max_val < threshold:
-        return None
-
     top_left = max_loc
     left, top = int(top_left[0]), int(top_left[1])
     w, h = tw, th
 
     if DEBUG and debug_out:
+        print(f"Template {debug_out} match max_val: {max_val:.4f}")
         vis = cv2.cvtColor(np.array(pil_image.convert("RGB")), cv2.COLOR_RGB2BGR)
-        cv2.rectangle(vis, (left, top), (left + w, top + h), (0, 255, 255), 2)
-        score_text = f"{max_val:.3f}"
-        cv2.putText(
-            vis,
-            score_text,
-            (left, max(top - 8, 0)),
-            cv2.FONT_HERSHEY_SIMPLEX,
-            0.6,
-            (0, 255, 255),
-            2,
-            cv2.LINE_AA,
-        )
+        loc = np.where(res >= threshold)
+        for pt in zip(*loc[::-1]):
+            cv2.rectangle(vis, pt, (pt[0] + w, pt[1] + h), (0,0,255), 2)
+            score_text = f"{max_val:.3f}"
+            cv2.putText(
+                vis,
+                score_text,
+                (pt[0], max(pt[1] - 8, 0)),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.6,
+                (0, 255, 255),
+                1,
+                cv2.LINE_AA,
+            )
         ensure_dir(debug_out)
         cv2.imwrite(debug_out, vis)
         print(f"Saved debug image -> {debug_out} (max_val={max_val})")
+
+    if max_val < threshold:
+        return None
 
     return (left, top, w, h)
 
@@ -166,6 +169,7 @@ def _screenshot_mss(left, top, width, height, out):
     if DEBUG and out:
         ensure_dir(out)
         img.save(out)  # 直接用 PIL 保存
+        print(f"Saved debug image -> {out}")
 
     return img
 

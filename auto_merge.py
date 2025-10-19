@@ -3,9 +3,28 @@ import pyautogui
 import time
 from utils import *
 from PIL import Image
+from auto_common import *
 
 
-def auto_merge(template: Image.Image = None):
+def _find_top_point(loop_check=False):
+    chongzhu_top_template = Image.open("./assets/chongzhu/chongzhu_top.png").convert("RGB")
+    point = find_image_in_region(
+        (1080, 320, 380, 80),
+        chongzhu_top_template,
+        threshold=0.7,
+        debug_out_name="chongzhu_top",
+        loop_check=loop_check,
+    )
+    return point
+
+
+def is_find(loop_check=False):
+    point = _find_top_point(loop_check)
+    print("检测合成页面 at:", point)
+    return bool(point)
+
+
+def _auto_merge(template: Image.Image = None):
     try:
         if os.path.exists("tmp") and os.path.isdir("tmp"):
             os.rmdir("tmp")
@@ -15,8 +34,8 @@ def auto_merge(template: Image.Image = None):
     pyautogui.PAUSE = 0.025
 
     template = template or screenshot(967, 1391, 34, 34, "tmp/template.png")
-    btn_template = Image.open("./assets/hecheng.png").convert("RGB")
-    empty_result_template = Image.open("./assets/hecheng.png").convert("RGB")
+    btn_template = Image.open("./assets/chongzhu/hecheng.png").convert("RGB")
+    empty_result_template = Image.open("./assets/chongzhu/empty_result.png").convert("RGB")
 
     _count = 0
     start = time.time()
@@ -57,80 +76,18 @@ def auto_merge(template: Image.Image = None):
             break
 
 
-def add_material_from_bag(template: Image.Image):
-    point = find_image_in_region(
-        (2537, 1180, 1300, 560), template, threshold=0.8, debug_out_name="bag"
-    )
-
-    if point:
-        click(point, ctrl=True)
-        print("添加素材 at:", point)
-        return True
-    else:
-        print("素材已清空，合成结束")
-        return False
-
-
-def ensure_is_login():
-    pyautogui.moveTo(100, 100)
-    login_template = Image.open("./assets/login.png").convert("RGB")
-    point = find_image_in_region(
-        None,
-        login_template,
-        threshold=0.7,
-        debug_out_name="login_debug",
-    )
-    if not point:
-        return False
-
-    click(point)
-    print("登录 at:", point)
-
-    pyautogui.moveTo(100, 100)
-
-    login_step2_template = Image.open("./assets/login_step2.png").convert("RGB")
-    point = find_image_in_region(
-        None,
-        login_step2_template,
-        threshold=0.7,
-        debug_out_name="login_step2",
-        loop_check=True,
-        check_interval=0.5,
-        timeout=60.0,
-    )
-    if not point:
-        raise Exception("登录步骤2 超时")
-    click(point)
-
-    login_step3_template = Image.open("./assets/login_step3.png").convert("RGB")
-    point = find_image_in_region(
-        None,
-        login_step3_template,
-        threshold=0.7,
-        debug_out_name="login_step3",
-        loop_check=True,
-        check_interval=0.5,
-        timeout=60.0,
-    )
-
-    if not point:
-        raise Exception("登录步骤3 超时")
-
-    return True
-
-
-def auto_merge_delirium():
+def start():
     template = screenshot(967, 1391, 34, 34, "tmp/template.png")
     click((900, 900))
     while True:
-        auto_merge(template)
+        _auto_merge(template)
         time.sleep(1)
 
-        if not ensure_is_login():
+        if ensure_is_login():
             pyautogui.press("esc")
             time.sleep(1)
 
-        cangku_template = Image.open("./assets/cangku.png").convert("RGB")
+        cangku_template = Image.open("./assets/cangku/cangku.png").convert("RGB")
         point = find_image_in_region(
             None,
             cangku_template,
@@ -145,7 +102,7 @@ def auto_merge_delirium():
         click(point)
         print("仓库 at:", point)
 
-        currency_box = Image.open("./assets/currency_box.png").convert("RGB")
+        currency_box = Image.open("./assets/cangku/currency_box.png").convert("RGB")
         point = find_image_in_region(
             (0, 0, 1300, 350),
             currency_box,
@@ -216,7 +173,7 @@ def auto_merge_delirium():
         pyautogui.press("esc")
         time.sleep(0.5)
 
-        chongzhu_template = Image.open("./assets/chongzhu.png").convert("RGB")
+        chongzhu_template = Image.open("./assets/chongzhu/chongzhu.png").convert("RGB")
         point = find_image_in_region(
             None,
             chongzhu_template,
@@ -229,14 +186,7 @@ def auto_merge_delirium():
             break
         click(point)
 
-        chongzhu_top_template = Image.open("./assets/chongzhu_top.png").convert("RGB")
-        point = find_image_in_region(
-            (1080, 320, 380, 80),
-            chongzhu_top_template,
-            threshold=0.7,
-            debug_out_name="chongzhu_top",
-            loop_check=True,
-        )
+        point = _find_top_point(loop_check=True)
         if not point:
             print("未找到重铸界面，结束")
             break
@@ -247,4 +197,4 @@ def auto_merge_delirium():
 
 
 if __name__ == "__main__":
-    auto_merge_delirium()
+    start()
