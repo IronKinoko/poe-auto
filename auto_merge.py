@@ -100,6 +100,7 @@ def ensure_is_login():
     )
     if not point:
         raise Exception("登录步骤2 超时")
+    click(point)
 
     login_step3_template = Image.open("./assets/login_step3.png").convert("RGB")
     point = find_image_in_region(
@@ -219,7 +220,7 @@ def auto_merge_delirium():
         point = find_image_in_region(
             None,
             chongzhu_template,
-            threshold=0.5,
+            threshold=0.7,
             debug_out_name="chongzhu",
         )
 
@@ -227,13 +228,12 @@ def auto_merge_delirium():
             print("未找到重铸，结束")
             break
         click(point)
-        
-        
+
         chongzhu_top_template = Image.open("./assets/chongzhu_top.png").convert("RGB")
         point = find_image_in_region(
-            None,
+            (1080, 320, 380, 80),
             chongzhu_top_template,
-            threshold=0.5,
+            threshold=0.7,
             debug_out_name="chongzhu_top",
             loop_check=True,
         )
