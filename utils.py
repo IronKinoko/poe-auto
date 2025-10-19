@@ -115,7 +115,7 @@ def _find_template_in_pil(
         vis = cv2.cvtColor(np.array(pil_image.convert("RGB")), cv2.COLOR_RGB2BGR)
         loc = np.where(res >= threshold)
         for pt in zip(*loc[::-1]):
-            cv2.rectangle(vis, pt, (pt[0] + w, pt[1] + h), (0,0,255), 2)
+            cv2.rectangle(vis, pt, (pt[0] + w, pt[1] + h), (0, 0, 255), 2)
             score_text = f"{max_val:.3f}"
             cv2.putText(
                 vis,
@@ -245,7 +245,11 @@ def work_in_process(fn):
 
     def starter():
         global _worker
-        _worker = Process(target=fn, daemon=True)
+        tmp = Process(target=fn, daemon=True)
+        if _worker and _worker.is_alive():
+            print("Worker is already running.")
+            return
+        _worker = tmp
         _worker.start()
 
     return starter
@@ -253,7 +257,7 @@ def work_in_process(fn):
 
 def stop_worker():
     global _worker
-    if _worker:
+    if _worker and _worker.is_alive():
         _worker.terminate()
         _worker.join(timeout=5)
         _worker = None

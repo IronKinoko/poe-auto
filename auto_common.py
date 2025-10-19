@@ -2,11 +2,12 @@ import pyautogui
 from utils import *
 from PIL import Image
 
+
 def ensure_is_login():
     pyautogui.moveTo(100, 100)
     login_template = Image.open("./assets/login/login.png").convert("RGB")
     point = find_image_in_region(
-        None,
+        (1785, 1750, 300, 200),
         login_template,
         threshold=0.7,
         debug_out_name="login_debug",
@@ -21,7 +22,7 @@ def ensure_is_login():
 
     login_step2_template = Image.open("./assets/login/login_step2.png").convert("RGB")
     point = find_image_in_region(
-        None,
+        (1340, 1850, 300, 200),
         login_step2_template,
         threshold=0.7,
         debug_out_name="login_step2",
@@ -35,7 +36,7 @@ def ensure_is_login():
 
     login_step3_template = Image.open("./assets/login/login_step3.png").convert("RGB")
     point = find_image_in_region(
-        None,
+        (700, 1900, 300, 200),
         login_step3_template,
         threshold=0.7,
         debug_out_name="login_step3",
@@ -48,6 +49,7 @@ def ensure_is_login():
         raise Exception("登录步骤3 超时")
 
     return False
+
 
 def add_material_from_bag(template: Image.Image):
     point = find_image_in_region(
