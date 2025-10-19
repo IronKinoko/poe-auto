@@ -59,6 +59,7 @@ def add_material_from_bag(template: Image.Image):
     if point:
         click(point, ctrl=True)
         print("添加素材 at:", point)
+        pyautogui.moveTo(2537, 1180)
         return True
     else:
         print("素材已清空，合成结束")
