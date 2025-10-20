@@ -39,7 +39,7 @@ def _auto_anjie():
             print(f"------ {ts} diff: {diff:.2f}s  sum: {(now - start):.2f}s ------")
 
         point = find_image_in_region(
-            None,
+            (475, 693, 2246, 1221),
             order_done_template,
             threshold=0.8,
             debug_out_name="order_done",
