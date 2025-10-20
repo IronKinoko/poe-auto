@@ -61,7 +61,7 @@ def _auto_anjie():
         point = find_image_in_region(
             None,
             order_done_template,
-            threshold=0.9,
+            threshold=0.8,
             debug_out_name="order_done",
             loop_check=True,
         )
