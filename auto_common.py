@@ -65,6 +65,7 @@ def add_material_from_bag(template: Image.Image):
         print("素材已清空，合成结束")
         return False
 
+
 def open_currency_box():
     cangku_template = Image.open("./assets/cangku/cangku.png").convert("RGB")
     point = find_image_in_region(

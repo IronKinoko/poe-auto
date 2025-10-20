@@ -1,4 +1,3 @@
-import os
 import pyautogui
 import time
 from utils import *
@@ -27,12 +26,6 @@ def is_find(loop_check=False):
 
 
 def _auto_merge(template: Image.Image = None):
-    try:
-        if os.path.exists("tmp") and os.path.isdir("tmp"):
-            os.rmdir("tmp")
-    except Exception:
-        pass
-
     pyautogui.PAUSE = 0.025
 
     template = template or screenshot(967, 1391, 34, 34, "tmp/template.png")

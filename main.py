@@ -2,11 +2,14 @@ import auto_use_delirium
 import auto_merge
 import auto_anjie
 from pynput import keyboard
-from utils import work_in_process, stop_worker
+from utils import work_in_process, stop_worker, clean_dir
 import sys
 import signal
 
 signal.signal(signal.SIGINT, signal.SIG_DFL)
+
+clean_dir("tmp")
+
 
 def auto_detect():
     if auto_merge.is_find():
@@ -17,6 +20,7 @@ def auto_detect():
         auto_anjie.start()
     else:
         print("无法识别当前页面，请切换到合成页面或使用迷幻药页面。")
+
 
 if __name__ == "__main__":
     try:

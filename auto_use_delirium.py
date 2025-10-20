@@ -1,4 +1,3 @@
-import os
 import pyautogui
 import time
 from utils import *
@@ -41,12 +40,6 @@ def is_find(loop_check=False):
 
 
 def _use_delirium():
-    try:
-        if os.path.exists("tmp") and os.path.isdir("tmp"):
-            os.rmdir("tmp")
-    except Exception:
-        pass
-
     pyautogui.PAUSE = 0.025
 
     # 清空所有内容

@@ -31,6 +31,11 @@ def ensure_dir(path):
         os.makedirs(d, exist_ok=True)
 
 
+def clean_dir(path):
+    import shutil
+    if os.path.exists(path) and os.path.isdir(path):
+        shutil.rmtree(path)
+
 @time_it()
 def _find_template_in_pil(
     pil_image: Image.Image, template: Image.Image, threshold=0.8, debug_out=None

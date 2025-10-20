@@ -18,20 +18,6 @@ def _find_top_point(loop_check=False):
     return point
 
 
-def _find_result_point():
-    x, y = _find_top_point()
-    return (x, y + 300)
-
-
-def _find_delirium_point():
-    x, y = _find_top_point()
-    return [
-        (x - 180, y + 600),
-        (x, y + 600),
-        (x + 180, y + 600),
-    ]
-
-
 def is_find(loop_check=False):
     point = _find_top_point(loop_check)
     print("检测通货交易页面 at:", point)
@@ -39,12 +25,6 @@ def is_find(loop_check=False):
 
 
 def _auto_anjie():
-    try:
-        if os.path.exists("tmp") and os.path.isdir("tmp"):
-            os.rmdir("tmp")
-    except Exception:
-        pass
-
     pyautogui.PAUSE = 0.025
 
     order_done_template = Image.open("./assets/anjie/order_done.png").convert("RGB")
