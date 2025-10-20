@@ -5,15 +5,18 @@ import pyautogui
 import tkinter as tk
 from PIL import Image, ImageTk
 
+
 def capture_fullscreen():
     # 直接使用 pyautogui 截取全屏，返回 PIL.Image
     return pyautogui.screenshot()
+
 
 class SelectorApp:
     def __init__(self, pil_image):
         self.img = pil_image
         self.root = tk.Tk()
         self.root.title("屏幕选择器 - 按 ESC 取消")
+        self.root.attributes("-fullscreen", True)
         self.root.configure(background="black")
         # 绑定 ESC 取消
         self.root.bind("<Escape>", lambda e: self._cancel())
@@ -48,10 +51,17 @@ class SelectorApp:
         self.root.attributes("-topmost", True)
 
         # Canvas 使用显示图像尺寸
-        self.canvas = tk.Canvas(self.root, width=disp_w, height=disp_h, highlightthickness=0)
+        self.canvas = tk.Canvas(
+            self.root, width=disp_w, height=disp_h, highlightthickness=0
+        )
         self.canvas.pack(fill="both", expand=True)
         # 将截图放到 canvas 背景（左上角）
         self.canvas.create_image(0, 0, anchor="nw", image=self.photo)
+        # 使用 Canvas 原生图形实现遮罩：用 4 个矩形覆盖非选区（性能更好）
+        self._disp_w = disp_w
+        self._disp_h = disp_h
+        self.mask_ids = []
+        self._create_canvas_mask(disp_w, disp_h)
 
         # 选择相关
         self.start_x = None
@@ -97,8 +107,16 @@ class SelectorApp:
         # 新建矩形（基于显示坐标）
         if self.rect_id:
             self.canvas.delete(self.rect_id)
-        self.rect_id = self.canvas.create_rectangle(self.start_x, self.start_y, self.start_x, self.start_y,
-                                                    outline="red", width=2)
+        self.rect_id = self.canvas.create_rectangle(
+            self.start_x,
+            self.start_y,
+            self.start_x,
+            self.start_y,
+            outline="red",
+            width=2,
+        )
+        # 更新遮罩（canvas 方案），挖空初始点（0 大小）
+        self._update_canvas_mask(self.start_x, self.start_y, self.start_x, self.start_y)
 
     def on_move(self, event):
         if not self.rect_id:
@@ -107,6 +125,8 @@ class SelectorApp:
         cur_y = self.canvas.canvasy(event.y)
         # 更新矩形（显示坐标）
         self.canvas.coords(self.rect_id, self.start_x, self.start_y, cur_x, cur_y)
+        # 延迟/节流更新遮罩：记录最新坐标并在短延迟后一次性更新
+        self._update_canvas_mask(self.start_x, self.start_y, cur_x, cur_y)
 
     def on_release(self, event):
         if not self.rect_id:
@@ -124,6 +144,8 @@ class SelectorApp:
         h = y1 - y0
         self.result = (x0, y0, w, h)
         # 关闭窗口并返回
+        # 在退出前移除遮罩和矩形
+        self._clear_mask()
         self.root.quit()
 
     def _cancel(self):
@@ -136,6 +158,76 @@ class SelectorApp:
         self.root.destroy()
         return self.result
 
+    # --- Canvas-based mask helpers ---
+    def _create_canvas_mask(self, width, height):
+        # 创建四个矩形覆盖图像区域（top, left, right, bottom）
+        # 使用半透明黑色 fill。stipple 可以在某些平台上模拟半透明效果更快。
+        fill = "#000000"
+        alpha = 0.5
+        # 我们使用默认的半透明模拟：配置 color 与 stipple
+        # top
+        id_top = self.canvas.create_rectangle(
+            0, 0, width, height, fill=fill, stipple="gray50", outline="", 
+        )
+        self.mask_ids = [id_top]
+
+    def _update_canvas_mask(self, x0, y0, x1, y1):
+        # 规范化坐标
+        lx = int(max(0, min(x0, x1)))
+        ty = int(max(0, min(y0, y1)))
+        rx = int(min(self._disp_w, max(x0, x1)))
+        by = int(min(self._disp_h, max(y0, y1)))
+
+        # 删除旧的四块遮罩（如果存在）
+        for mid in self.mask_ids:
+            try:
+                self.canvas.delete(mid)
+            except Exception:
+                pass
+        self.mask_ids = []
+
+        # 使用 4 个矩形覆盖非选区：上、下、左、右
+        # top
+        id_top = self.canvas.create_rectangle(
+            0, 0, self._disp_w, ty, fill="#000000", stipple="gray50", outline=""
+        )
+        # bottom
+        id_bottom = self.canvas.create_rectangle(
+            0,
+            by,
+            self._disp_w,
+            self._disp_h,
+            fill="#000000",
+            stipple="gray50",
+            outline="",
+        )
+        # left
+        id_left = self.canvas.create_rectangle(
+            0, ty, lx, by, fill="#000000", stipple="gray50", outline=""
+        )
+        # right
+        id_right = self.canvas.create_rectangle(
+            rx, ty, self._disp_w, by, fill="#000000", stipple="gray50", outline=""
+        )
+
+        self.mask_ids = [id_top, id_bottom, id_left, id_right]
+
+        # 绘制高亮边框
+        # 如果已经有边框 rect (self.rect_id) 我们可以调整其样式；否则确保有明显边界（rect 已由选择逻辑创建）
+        try:
+            self.canvas.itemconfig(self.rect_id, outline="white", width=2)
+        except Exception:
+            pass
+
+    def _clear_mask(self):
+        for mid in list(self.mask_ids):
+            try:
+                self.canvas.delete(mid)
+            except Exception:
+                pass
+        self.mask_ids = []
+
+
 def main():
     print("正在截取全屏...")
     time.sleep(0.05)
@@ -146,6 +238,7 @@ def main():
         print("选区结果:", result)
     else:
         print("未选择任何区域。")
+
 
 if __name__ == "__main__":
     main()
