@@ -7,7 +7,9 @@ from auto_common import *
 
 
 def _find_top_point(loop_check=False):
-    chongzhu_top_template = Image.open("./assets/chongzhu/chongzhu_top.png").convert("RGB")
+    chongzhu_top_template = Image.open("./assets/chongzhu/chongzhu_top.png").convert(
+        "RGB"
+    )
     point = find_image_in_region(
         (1080, 320, 380, 80),
         chongzhu_top_template,
@@ -35,7 +37,9 @@ def _auto_merge(template: Image.Image = None):
 
     template = template or screenshot(967, 1391, 34, 34, "tmp/template.png")
     btn_template = Image.open("./assets/chongzhu/hecheng.png").convert("RGB")
-    empty_result_template = Image.open("./assets/chongzhu/empty_result.png").convert("RGB")
+    empty_result_template = Image.open("./assets/chongzhu/empty_result.png").convert(
+        "RGB"
+    )
 
     _count = 0
     start = time.time()
@@ -87,34 +91,8 @@ def start():
             pyautogui.press("esc")
             time.sleep(1)
 
-        cangku_template = Image.open("./assets/cangku/cangku.png").convert("RGB")
-        point = find_image_in_region(
-            None,
-            cangku_template,
-            threshold=0.7,
-            debug_out_name="cangku",
-            loop_check=True,
-        )
-
-        if not point:
-            print("未找到仓库，结束")
+        if not open_currency_box():
             break
-        click(point)
-        print("仓库 at:", point)
-
-        currency_box = Image.open("./assets/cangku/currency_box.png").convert("RGB")
-        point = find_image_in_region(
-            (0, 0, 1300, 350),
-            currency_box,
-            threshold=0.7,
-            debug_out_name="currency_box_top",
-            loop_check=True,
-        )
-        if not point:
-            print("未找到通货箱，结束")
-            break
-        click(point)
-        print("通货箱 at:", point)
 
         point = find_image_in_region(
             (245, 1300, 860, 260),

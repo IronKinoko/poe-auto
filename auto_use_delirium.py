@@ -48,7 +48,7 @@ def _use_delirium():
         pass
 
     pyautogui.PAUSE = 0.025
-    
+
     # 清空所有内容
     for fn in [_find_delirium_point, _find_result_point]:
         points = fn()
@@ -60,7 +60,6 @@ def _use_delirium():
     template3 = screenshot(2784, 1237, 50, 30, "tmp/template3.png")
     template4 = screenshot(2892, 1237, 50, 30, "tmp/template4.png")
     btn_template = Image.open("./assets/delirium/dizhu.png").convert("RGB")
-
 
     start = time.time()
     now = time.time()
@@ -104,13 +103,7 @@ def start():
 
     click((900, 900))
 
-    # 108
-
-    # 2686 1227
-
     _use_delirium()
-
-    # ensure_is_login()
 
 
 if __name__ == "__main__":

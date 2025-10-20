@@ -1,5 +1,6 @@
 import auto_use_delirium
 import auto_merge
+import auto_anjie
 from pynput import keyboard
 from utils import work_in_process, stop_worker
 import sys
@@ -12,6 +13,8 @@ def auto_detect():
         auto_merge.start()
     elif auto_use_delirium.is_find():
         auto_use_delirium.start()
+    elif auto_anjie.is_find():
+        auto_anjie.start()
     else:
         print("无法识别当前页面，请切换到合成页面或使用迷幻药页面。")
 
