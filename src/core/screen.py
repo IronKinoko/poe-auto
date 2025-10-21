@@ -1,52 +1,17 @@
-import os
 import pyautogui
-import time
 import random
-import functools
-import sys
+from typing import Optional, Tuple
 from PIL import Image
+import cv2
+import numpy as np
 
-DEBUG = "--debug" in sys.argv
+from src.utils.common import time_it, ensure_dir, until, DEBUG
 
-
-def time_it(log_fn=print):
-    def deco(func):
-        @functools.wraps(func)
-        def wrapper(*args, **kwargs):
-            t0 = time.perf_counter()
-            res = func(*args, **kwargs)
-            t1 = time.perf_counter()
-            if DEBUG:
-                log_fn(f"{func.__name__} took {t1-t0:.6f}s")
-            return res
-
-        return wrapper
-
-    return deco
-
-
-def ensure_dir(path):
-    d = os.path.dirname(path)
-    if d and not os.path.exists(d):
-        os.makedirs(d, exist_ok=True)
-
-
-def clean_dir(path):
-    import shutil
-    if os.path.exists(path) and os.path.isdir(path):
-        shutil.rmtree(path)
 
 @time_it()
 def _find_template_in_pil(
     pil_image: Image.Image, template: Image.Image, threshold=0.8, debug_out=None
 ):
-    try:
-        import cv2
-        import numpy as np
-    except Exception as e:
-        print("需要 opencv-python 和 numpy 用于模板匹配：", e)
-        raise
-
     tpl = cv2.cvtColor(np.array(template.convert("RGB")), cv2.COLOR_RGB2BGR)
 
     # 提取 alpha（如果有），并把模板变成 3 通道 BGR
@@ -139,17 +104,7 @@ def _find_template_in_pil(
     if max_val < threshold:
         return None
 
-    return (left, top, w, h)
-
-
-def _screenshot_pyautogui(left, top, width, height, out):
-    img = pyautogui.screenshot(region=(left, top, width, height))
-
-    if DEBUG and out:
-        ensure_dir(out)
-        img.save(out)
-
-    return img
+    return (int(left), int(top), w, h)
 
 
 _MSS_INSTANCE = None
@@ -184,15 +139,6 @@ def screenshot(left, top, width, height, out):
     return _screenshot_mss(left, top, width, height, out)
 
 
-def click(point, ctrl=False, right=False):
-    pyautogui.moveTo(point)
-    if ctrl:
-        pyautogui.keyDown("ctrl")
-    pyautogui.click(button="right" if right else "left")
-    if ctrl:
-        pyautogui.keyUp("ctrl")
-
-
 def to_screen_point(offset, region):
     """将区域内坐标转换为屏幕坐标"""
     x, y = offset
@@ -204,7 +150,7 @@ def to_screen_point(offset, region):
 
 
 def find_image_in_region(
-    region: tuple[int, int, int, int] | None,
+    region: Optional[Tuple[int, int, int, int]],
     image: Image.Image,
     threshold=0.8,
     debug_out_name=None,
@@ -229,43 +175,3 @@ def find_image_in_region(
         return until(_detect_once, check_interval, timeout)
     else:
         return _detect_once()
-
-
-def until(fn, check_interval=0.1, timeout=10.0):
-    start_time = time.time()
-    while True:
-        res = fn()
-        if res:
-            return res
-        if time.time() - start_time > timeout:
-            return None
-        time.sleep(check_interval)
-
-
-_worker = None
-
-
-def work_in_process(fn):
-    from multiprocessing import Process
-
-    def starter():
-        global _worker
-        tmp = Process(target=fn, daemon=True)
-        if _worker and _worker.is_alive():
-            print("Worker is already running.")
-            return
-        _worker = tmp
-        _worker.start()
-
-    return starter
-
-
-def stop_worker():
-    global _worker
-    if _worker and _worker.is_alive():
-        _worker.terminate()
-        _worker.join(timeout=5)
-        _worker = None
-        print("Worker process stopped.")
-    else:
-        print("No worker process to stop.")

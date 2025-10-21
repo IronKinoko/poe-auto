@@ -1,25 +1,20 @@
-import auto_use_delirium
-import auto_merge
-import auto_anjie
-from pynput import keyboard
-from utils import work_in_process, stop_worker, clean_dir
 import sys
 import signal
 
-signal.signal(signal.SIGINT, signal.SIG_DFL)
+from pynput import keyboard
+from src.core.worker import stop_worker, work_in_process
+from src.tasks import TASKS
 
-clean_dir("tmp")
+signal.signal(signal.SIGINT, signal.SIG_DFL)
 
 
 def auto_detect():
-    if auto_merge.is_find():
-        auto_merge.start()
-    elif auto_use_delirium.is_find():
-        auto_use_delirium.start()
-    elif auto_anjie.is_find():
-        auto_anjie.start()
-    else:
-        print("无法识别当前页面，请切换到合成页面或使用迷幻药页面。")
+    for task in TASKS:
+        if task.is_find():
+            task.run()
+            return
+
+    print("无法识别当前页面，请切换到合成页面或使用迷幻药页面。")
 
 
 if __name__ == "__main__":

@@ -1,5 +1,3 @@
-import os
-import json
 import time
 import pyautogui
 import tkinter as tk
@@ -167,7 +165,13 @@ class SelectorApp:
         # 我们使用默认的半透明模拟：配置 color 与 stipple
         # top
         id_top = self.canvas.create_rectangle(
-            0, 0, width, height, fill=fill, stipple="gray50", outline="", 
+            0,
+            0,
+            width,
+            height,
+            fill=fill,
+            stipple="gray50",
+            outline="",
         )
         self.mask_ids = [id_top]
 
