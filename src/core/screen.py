@@ -144,8 +144,8 @@ def to_screen_point(offset, region):
     x, y = offset
     left, top, w, h = region
     return (
-        left + x + w / 2 + random.randint(-3, 3),
-        top + y + h / 2 + random.randint(-3, 3),
+        int(left + x + w / 2 + random.randint(-3, 3)),
+        int(top + y + h / 2 + random.randint(-3, 3)),
     )
 
 
