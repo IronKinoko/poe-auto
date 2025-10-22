@@ -1,3 +1,4 @@
+import time
 import pyautogui
 import random
 from typing import Optional, Tuple
@@ -158,6 +159,7 @@ def find_image_in_region(
     check_interval=0.1,
     timeout=5.0,
 ):
+    """在指定区域内查找图像模板，返回屏幕坐标点或 None"""
     ensure_dir("tmp")
     debug_screenshot_out = f"tmp/{debug_out_name}_screenshot.png"
     debug_find_out = f"tmp/{debug_out_name}_find.png"
@@ -174,4 +176,10 @@ def find_image_in_region(
     if loop_check:
         return until(_detect_once, check_interval, timeout)
     else:
-        return _detect_once()
+        for i in range(3):
+            point = _detect_once()
+            if point:
+                return point
+            if i < 2:
+                time.sleep(0.05)
+        return None
