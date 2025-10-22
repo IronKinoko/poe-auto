@@ -87,7 +87,13 @@ class Task:
 
     def add_material_from_bag(self, template: Image.Image) -> bool:
         point = find_image_in_region(
-            (2537, 1180, 1300, 560), template, threshold=0.9, debug_out_name="bag"
+            (2537, 1180, 1300, 560),
+            template,
+            threshold=0.9,
+            debug_out_name="bag",
+            loop_check=True,
+            check_interval=0.05,
+            timeout=0.5,
         )
 
         if point:
