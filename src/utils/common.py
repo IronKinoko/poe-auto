@@ -36,12 +36,17 @@ def clean_dir(path):
         shutil.rmtree(path)
 
 
-def until(fn, check_interval=0.1, timeout=10.0):
+def until(fn, check_interval=0.1, timeout=10.0, retry_count=None):
+    """重复执行函数直到返回真值，或超时，或达到重试次数"""
     start_time = time.time()
+    attempts = 0
     while True:
         res = fn()
         if res:
             return res
+        attempts += 1
+        if retry_count is not None and attempts >= retry_count:
+            return None
         if time.time() - start_time > timeout:
             return None
         time.sleep(check_interval)

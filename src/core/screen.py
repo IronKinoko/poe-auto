@@ -174,12 +174,6 @@ def find_image_in_region(
         return to_screen_point((region[0], region[1]), result) if result else None
 
     if loop_check:
-        return until(_detect_once, check_interval, timeout)
+        return until(_detect_once, check_interval=check_interval, timeout=timeout)
     else:
-        for i in range(3):
-            point = _detect_once()
-            if point:
-                return point
-            if i < 2:
-                time.sleep(0.05)
-        return None
+        return until(_detect_once, check_interval=0.05, retry_count=3)
