@@ -84,7 +84,7 @@ def _find_template_in_pil(
     if DEBUG and debug_out:
         print(f"Template {debug_out} match max_val: {max_val:.4f}")
         vis = cv2.cvtColor(np.array(pil_image.convert("RGB")), cv2.COLOR_RGB2BGR)
-        loc = np.where(res >= threshold)
+        loc = np.where(res >= threshold - 0.2)
         for pt in zip(*loc[::-1]):
             cv2.rectangle(vis, pt, (pt[0] + w, pt[1] + h), (0, 0, 255), 2)
             score_text = f"{max_val:.3f}"
