@@ -1,7 +1,6 @@
-import time
 import pyautogui
 import random
-from typing import Optional, Tuple
+from typing import Optional, Tuple, Literal
 from PIL import Image
 import cv2
 import numpy as np
@@ -11,15 +10,15 @@ from src.utils.common import time_it, ensure_dir, until, DEBUG
 
 @time_it()
 def _find_template_in_pil(
-    pil_image: Image.Image, template: Image.Image, threshold=0.8, debug_out=None
+    pil_image: Image.Image,
+    template: Image.Image,
+    threshold=0.8,
+    debug_out=None,
 ):
     tpl = cv2.cvtColor(np.array(template.convert("RGB")), cv2.COLOR_RGB2BGR)
 
-    # 提取 alpha（如果有），并把模板变成 3 通道 BGR
-    mask = None
+    # 如果模板是 4 通道（含 alpha），丢弃 alpha 通道，转换为 3 通道 BGR
     if tpl.ndim == 3 and tpl.shape[2] == 4:
-        alpha = tpl[:, :, 3]
-        mask = (alpha > 0).astype(np.uint8) * 255
         tpl = tpl[:, :, :3]
     elif tpl.ndim == 2:
         tpl = cv2.cvtColor(tpl, cv2.COLOR_GRAY2BGR)
@@ -33,46 +32,44 @@ def _find_template_in_pil(
     if th > ih or tw > iw:
         return None
 
-    # 转到 LAB 色彩空间以获得对颜色感知更稳健的结果
     try:
-        img_cs = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2Lab)
-        tpl_cs = cv2.cvtColor(tpl, cv2.COLOR_BGR2Lab)
+        img_gray = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2GRAY)
+        tpl_gray = cv2.cvtColor(tpl, cv2.COLOR_BGR2GRAY)
     except Exception:
-        # 回退到 BGR（极少出现）
-        img_cs = img_bgr.copy()
-        tpl_cs = tpl.copy()
+        img_gray = cv2.cvtColor(img_bgr.copy(), cv2.COLOR_BGR2GRAY)
+        tpl_gray = cv2.cvtColor(tpl.copy(), cv2.COLOR_BGR2GRAY)
 
-    # 转为 float32 并归一化到 [0,1]
-    img_cs = img_cs.astype(np.float32) / 255.0
-    tpl_cs = tpl_cs.astype(np.float32) / 255.0
+    res = cv2.matchTemplate(img_gray, tpl_gray, cv2.TM_CCOEFF_NORMED)
 
-    # 固定等权通道（保持不改变接口）
-    weights = [1.0 / 3.0, 1.0 / 3.0, 1.0 / 3.0]
-
-    # 选择匹配方法：优先 TM_CCOEFF_NORMED（对去均值敏感，通常更鲁棒）
-    # 若存在 mask，会尝试使用 TM_CCORR_NORMED 并传入 mask（部分 OpenCV 版本支持）
-    res = None
-    use_mask = mask is not None
-    for c in range(3):
-        img_ch = (img_cs[:, :, c] * 255).astype(np.uint8)
-        tpl_ch = (tpl_cs[:, :, c] * 255).astype(np.uint8)
-
+    if cv2.minMaxLoc(res)[1] >= threshold:
+        # 转到 LAB 色彩空间以获得对颜色感知更稳健的结果
         try:
-            if use_mask and mask is not None:
-                # 一些 OpenCV 版本支持在 matchTemplate 中传入 mask（TM_CCORR_NORMED 支持）
-                res_c = cv2.matchTemplate(
-                    img_ch, tpl_ch, cv2.TM_CCORR_NORMED, mask=mask
-                )
-            else:
-                res_c = cv2.matchTemplate(img_ch, tpl_ch, cv2.TM_CCOEFF_NORMED)
-        except TypeError:
-            # 某些版本的 Python 绑定不接受 mask 参数，回退到无 mask 的方法
+            img_cs = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2Lab)
+            tpl_cs = cv2.cvtColor(tpl, cv2.COLOR_BGR2Lab)
+        except Exception:
+            # 回退到 BGR（极少出现）
+            img_cs = img_bgr.copy()
+            tpl_cs = tpl.copy()
+
+        # 转为 float32 并归一化到 [0,1]
+        img_cs = img_cs.astype(np.float32) / 255.0
+        tpl_cs = tpl_cs.astype(np.float32) / 255.0
+
+        # 固定等权通道（保持不改变接口）
+        weights = [1.0 / 3.0, 1.0 / 3.0, 1.0 / 3.0]
+
+        res = None
+        for c in range(3):
+            img_ch = (img_cs[:, :, c] * 255).astype(np.uint8)
+            tpl_ch = (tpl_cs[:, :, c] * 255).astype(np.uint8)
+
+            # 不使用 mask，统一用 TM_CCOEFF_NORMED
             res_c = cv2.matchTemplate(img_ch, tpl_ch, cv2.TM_CCOEFF_NORMED)
 
-        if res is None:
-            res = weights[c] * res_c
-        else:
-            res = res + weights[c] * res_c
+            if res is None:
+                res = weights[c] * res_c
+            else:
+                res = res + weights[c] * res_c
 
     # 查找最佳匹配
     min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(res)
@@ -84,20 +81,18 @@ def _find_template_in_pil(
     if DEBUG and debug_out:
         print(f"Template {debug_out} match max_val: {max_val:.4f}")
         vis = cv2.cvtColor(np.array(pil_image.convert("RGB")), cv2.COLOR_RGB2BGR)
-        loc = np.where(res >= threshold - 0.2)
-        for pt in zip(*loc[::-1]):
-            cv2.rectangle(vis, pt, (pt[0] + w, pt[1] + h), (0, 0, 255), 2)
-            score_text = f"{max_val:.3f}"
-            cv2.putText(
-                vis,
-                score_text,
-                (pt[0], max(pt[1] - 8, 0)),
-                cv2.FONT_HERSHEY_SIMPLEX,
-                0.6,
-                (0, 255, 255),
-                1,
-                cv2.LINE_AA,
-            )
+        cv2.rectangle(vis, (left, top), (left + w, top + h), (0, 0, 255), 2)
+        score_text = f"{max_val:.3f}"
+        cv2.putText(
+            vis,
+            score_text,
+            (left, max(top - 8, 16)),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.6,
+            (0, 255, 255),
+            1,
+            cv2.LINE_AA,
+        )
         ensure_dir(debug_out)
         cv2.imwrite(debug_out, vis)
         print(f"Saved debug image -> {debug_out} (max_val={max_val})")

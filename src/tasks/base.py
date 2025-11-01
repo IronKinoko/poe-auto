@@ -89,11 +89,8 @@ class Task:
         point = find_image_in_region(
             (2537, 1180, 1300, 560),
             template,
-            threshold=0.9,
+            threshold=0.93,
             debug_out_name="bag",
-            loop_check=True,
-            check_interval=0.05,
-            timeout=0.5,
         )
 
         if point:
@@ -102,7 +99,6 @@ class Task:
             pyautogui.moveTo(2537, 1180)
             return True
         else:
-            print("素材已清空，合成结束")
             return False
 
     def open_currency_box(self) -> bool:
