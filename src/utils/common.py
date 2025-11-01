@@ -63,7 +63,7 @@ def project_path(*paths):
     """
     # 去掉开头的斜杠，统一处理
     clean_paths = [str(p).lstrip("/") for p in paths]
-    return str(_PROJECT_ROOT.joinpath(*clean_paths))
+    return str(_PROJECT_ROOT.joinpath(*clean_paths).as_posix())
 
 
 def load_img(path):
