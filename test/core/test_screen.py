@@ -1,8 +1,3 @@
-from src.utils import common
-
-common.DEBUG = True
-
-
 from src.core.screen import _find_template_in_pil
 from src.utils.common import load_img, project_path
 
@@ -20,3 +15,16 @@ def test_find_template_in_pil():
         source, img2, threshold=0.9, debug_out=project_path("tmp/tmp2.png")
     )
     assert result is None
+
+
+def test_same_template_return_same_position():
+    source = load_img("/test/fixtures/source.png")
+    img1 = load_img("/test/fixtures/map16_clip.png")
+
+    result1 = _find_template_in_pil(
+        source, img1, threshold=0.9, debug_out=project_path("tmp/tmp3.png")
+    )
+    result2 = _find_template_in_pil(
+        source, img1, threshold=0.9, debug_out=project_path("tmp/tmp4.png")
+    )
+    assert result1 == result2

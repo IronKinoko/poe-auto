@@ -1,5 +1,8 @@
 import sys
+import os
 from pathlib import Path
+
+os.environ["POE_AUTO_DEBUG"] = "1"
 
 # 强制添加项目根目录
 project_root = Path(__file__).parent.parent.resolve()

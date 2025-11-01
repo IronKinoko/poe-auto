@@ -4,7 +4,7 @@ import functools
 import sys
 from pathlib import Path
 
-DEBUG = "--debug" in sys.argv
+DEBUG = "--debug" in sys.argv or os.getenv("POE_AUTO_DEBUG") in ("1", "true", "True")
 
 
 def time_it(log_fn=print):
