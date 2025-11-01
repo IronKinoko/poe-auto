@@ -1,3 +1,4 @@
+import logging
 import time
 
 from PIL import Image
@@ -37,7 +38,7 @@ class MergeTask(Task):
                 click(point, ctrl=True, right=True)
                 time.sleep(0.5)
             else:
-                print("仓库内无素材，结束")
+                logging.info("仓库内无素材，结束")
                 break
 
                 # 查找迷雾箱
@@ -50,11 +51,11 @@ class MergeTask(Task):
                 #     loop_check=True,
                 # )
                 # if not findTargetRegion:
-                #     print("未找到迷雾箱，结束")
+                #     logging.info("未找到迷雾箱，结束")
                 #     break
                 # point = toScreenPoint((0, 0), findTargetRegion)
                 # click(point)
-                # print("迷雾箱 at:", point)
+                # logging.info("迷雾箱 at:", point)
                 # time.sleep(1)
 
                 # box = screenshot_pyautogui(325, 673, 681, 276, "tmp/box.png")
@@ -65,7 +66,7 @@ class MergeTask(Task):
                 #     debug_out="tmp/box_debug.png",
                 # )
                 # if not findTargetRegion:
-                #     print("仓库内无素材，结束")
+                #     logging.info("仓库内无素材，结束")
                 #     break
                 # point = toScreenPoint((325, 673), findTargetRegion)
                 # # 存
@@ -84,16 +85,17 @@ class MergeTask(Task):
                 chongzhu_template,
                 threshold=0.7,
                 debug_out_name="chongzhu",
+                mode="grayscale"
             )
 
             if not point:
-                print("未找到重铸，结束")
+                logging.info("未找到重铸，结束")
                 break
             click(point)
 
             point = self.find_top_point(loop_check=True)
             if not point:
-                print("未找到重铸界面，结束")
+                logging.info("未找到重铸界面，结束")
                 break
 
             for i in range(3):
@@ -103,7 +105,7 @@ class MergeTask(Task):
     def is_find(self, loop_check=False):
         point = self.find_top_point(loop_check)
         if point:
-            print("检测合成页面 at:", point)
+            logging.info(f"检测合成页面 at: {point}")
         return bool(point)
 
     def find_top_point(self, loop_check=False):
@@ -129,7 +131,7 @@ class MergeTask(Task):
                 diff = time.time() - now
                 now = time.time()
                 ts = time.strftime("%H:%M:%S", time.localtime(now))
-                print(
+                logging.info(
                     f"------ {ts} diff: {diff:.2f}s  sum: {(now - start):.2f}s ------"
                 )
 
@@ -151,7 +153,7 @@ class MergeTask(Task):
             )
             if point:
                 _count += 1
-                print(f"第 {_count} 次合成")
+                logging.info(f"第 {_count} 次合成")
                 click(point)
 
                 time.sleep(0.7)

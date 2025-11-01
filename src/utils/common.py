@@ -2,12 +2,14 @@ import os
 import time
 import functools
 import sys
+import logging
 from pathlib import Path
+
 
 DEBUG = "--debug" in sys.argv or os.getenv("POE_AUTO_DEBUG") in ("1", "true", "True")
 
 
-def time_it(log_fn=print):
+def time_it(log_fn=logging.debug):
     def deco(func):
         @functools.wraps(func)
         def wrapper(*args, **kwargs):
@@ -70,3 +72,23 @@ def load_img(path):
     from PIL import Image
 
     return Image.open(project_path(path)).convert("RGB")
+
+
+def init_logs():
+    ensure_dir("logs")
+
+    logging.basicConfig(
+        filename=f"logs/poe-auto.log",
+        filemode="a",
+        format="%(asctime)s - %(levelname)s - %(message)s",
+        level=logging.DEBUG if DEBUG else logging.INFO,
+        encoding="utf-8",
+    )
+
+    # 同时在控制台输出日志（stdout），方便命令行查看
+    console_handler = logging.StreamHandler(sys.stdout)
+    console_handler.setLevel(logging.DEBUG if DEBUG else logging.INFO)
+    console_handler.setFormatter(
+        logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
+    )
+    logging.getLogger().addHandler(console_handler)

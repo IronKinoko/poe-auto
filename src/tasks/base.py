@@ -1,3 +1,4 @@
+import logging
 import pyautogui
 from abc import abstractmethod
 from src.utils.common import clean_dir, load_img as _load_img
@@ -51,7 +52,7 @@ class Task:
             return True
 
         click(point)
-        print("登录 at:", point)
+        logging.info(f"登录 at: {point}")
 
         pyautogui.moveTo(100, 100)
 
@@ -95,7 +96,7 @@ class Task:
 
         if point:
             click(point, ctrl=True)
-            print("添加素材 at:", point)
+            logging.info(f"添加素材 at: {point}")
             pyautogui.moveTo(2537, 1180)
             return True
         else:
@@ -109,13 +110,14 @@ class Task:
             threshold=0.7,
             debug_out_name="cangku",
             loop_check=True,
+            mode="grayscale",
         )
 
         if not point:
-            print("未找到仓库，结束")
+            logging.info("未找到仓库，结束")
             return False
         click(point)
-        print("仓库 at:", point)
+        logging.info(f"仓库 at: {point}")
 
         currency_box = self.load_img("/assets/cangku/currency_box.png")
         point = find_image_in_region(
@@ -126,9 +128,9 @@ class Task:
             loop_check=True,
         )
         if not point:
-            print("未找到通货箱，结束")
+            logging.info("未找到通货箱，结束")
             return False
         click(point)
-        print("通货箱 at:", point)
+        logging.info(f"通货箱 at: {point}")
 
         return True

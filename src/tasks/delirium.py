@@ -1,3 +1,4 @@
+import logging
 import time
 
 from src.core.click import click
@@ -8,17 +9,17 @@ from src.tasks.base import Task
 class DeliriumTask(Task):
     def execute(self):
         if not self.is_find():
-            print("当前页面不是使用迷幻药页面，无法启动。")
+            logging.info("当前页面不是使用迷幻药页面，无法启动。")
             return
 
-        print("将要涂油的物品放到背包前四格，分别是<物品><迷幻药1><迷幻药2><迷幻药3>")
+        logging.info("将要涂油的物品放到背包前四格，分别是<物品><迷幻药1><迷幻药2><迷幻药3>")
 
         self.use_delirium()
 
     def is_find(self, loop_check=False):
         point = self.find_top_point(loop_check)
         if point:
-            print("检测使用迷幻药页面 at:", point)
+            logging.info(f"检测使用迷幻药页面 at: {point}")
         return bool(point)
 
     def find_top_point(self, loop_check=False):
@@ -66,14 +67,14 @@ class DeliriumTask(Task):
                 diff = time.time() - now
                 now = time.time()
                 ts = time.strftime("%H:%M:%S", time.localtime(now))
-                print(
+                logging.info(
                     f"------ {ts} diff: {diff:.2f}s  sum: {(now - start):.2f}s ------"
                 )
 
             for template in [template1, template2, template3, template4]:
                 added = self.add_material_from_bag(template)
                 if not added:
-                    print("素材已清空，使用迷幻药结束")
+                    logging.info("素材已清空，使用迷幻药结束")
                     return
 
             point = find_image_in_region(
@@ -84,11 +85,11 @@ class DeliriumTask(Task):
             )
 
             if point:
-                print(f"第 {_count+1} 次使用迷幻药")
+                logging.info(f"第 {_count+1} 次使用迷幻药")
                 click(point)
 
                 result_point = self.find_result_point()
                 click(result_point, ctrl=True)
             else:
-                print("未找到使用按钮，使用迷幻药结束")
+                logging.info("未找到使用按钮，使用迷幻药结束")
                 return

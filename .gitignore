@@ -218,3 +218,5 @@ __marimo__/
 tmp/
 
 .DS_Store
+
+logs/

@@ -1,3 +1,4 @@
+import logging
 import time
 
 import pyautogui
@@ -9,7 +10,7 @@ from src.tasks.base import Task
 class CurrencyTask(Task):
     def execute(self):
         if not self.is_find():
-            print("当前页面不是通货交易页面，无法启动。")
+            logging.info("当前页面不是通货交易页面，无法启动。")
             return
 
         self.auto_collect_currency()
@@ -17,7 +18,7 @@ class CurrencyTask(Task):
     def is_find(self, loop_check=False):
         point = self.find_top_point(loop_check)
         if point:
-            print("检测通货交易页面 at:", point)
+            logging.info(f"检测通货交易页面 at: {point}")
         return bool(point)
 
     def find_top_point(self, loop_check=False):
@@ -41,7 +42,7 @@ class CurrencyTask(Task):
                 diff = time.time() - now
                 now = time.time()
                 ts = time.strftime("%H:%M:%S", time.localtime(now))
-                print(
+                logging.info(
                     f"------ {ts} diff: {diff:.2f}s  sum: {(now - start):.2f}s ------"
                 )
 
@@ -54,10 +55,10 @@ class CurrencyTask(Task):
             )
 
             if not point:
-                print("未找到完成订单，结束")
+                logging.info("未找到完成订单，结束")
                 return
 
-            print(f"第 {_count+1} 次找到完成的订单，开始收获")
+            logging.info(f"第 {_count+1} 次找到完成的订单，开始收获")
             template = screenshot(
                 point[0] - 250, point[1] - 80, 25, 25, "tmp/template.png"
             )
@@ -73,7 +74,7 @@ class CurrencyTask(Task):
                 (2537, 1180, 1300, 560), template, threshold=0.9, debug_out_name="bag"
             )
             if not point:
-                print("未找到对应通货，结束")
+                logging.info("未找到对应通货，结束")
                 break
             click(point, ctrl=True, right=True)
 
@@ -85,5 +86,6 @@ class CurrencyTask(Task):
                 threshold=0.7,
                 debug_out_name="anjie_name",
                 loop_check=True,
+                mode="grayscale",
             )
             click(point, ctrl=True)

@@ -1,3 +1,5 @@
+import logging
+
 _worker = None
 
 
@@ -8,7 +10,7 @@ def work_in_process(fn):
         global _worker
         tmp = Process(target=fn, daemon=True)
         if _worker and _worker.is_alive():
-            print("Worker is already running.")
+            logging.info("Worker is already running.")
             return
         _worker = tmp
         _worker.start()
@@ -22,6 +24,6 @@ def stop_worker():
         _worker.terminate()
         _worker.join(timeout=5)
         _worker = None
-        print("Worker process stopped.")
+        logging.info("Worker process stopped.")
     else:
-        print("No worker process to stop.")
+        logging.info("No worker process to stop.")

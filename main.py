@@ -1,12 +1,15 @@
 import sys
 import signal
+import logging
 
 from pynput import keyboard
 from src.core.worker import stop_worker, work_in_process
 from src.tasks import TASKS
+from src.utils.common import init_logs
 
 signal.signal(signal.SIGINT, signal.SIG_DFL)
 
+init_logs()
 
 def auto_detect():
     for task in TASKS:
@@ -14,7 +17,7 @@ def auto_detect():
             task.run()
             return
 
-    print("无法识别当前页面，请切换到合成页面或使用迷幻药页面。")
+    logging.info("无法识别当前页面，请切换到合成页面或使用迷幻药页面。")
 
 
 if __name__ == "__main__":
@@ -22,7 +25,7 @@ if __name__ == "__main__":
         with keyboard.GlobalHotKeys(
             {"<f9>": work_in_process(auto_detect), "<f10>": stop_worker}
         ) as h:
-            print("Press <f9> to start, <f10> to exit.")
+            logging.info("Press <f9> to start, <f10> to exit.")
             h.join()
     except KeyboardInterrupt:
         stop_worker()

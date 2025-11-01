@@ -1,4 +1,5 @@
 import pyautogui
+import logging
 import random
 from typing import Optional, Tuple, Literal
 from PIL import Image
@@ -14,6 +15,7 @@ def _find_template_in_pil(
     template: Image.Image,
     threshold=0.8,
     debug_out=None,
+    mode: Literal["color", "grayscale", "both"] = "both",
 ):
     tpl = cv2.cvtColor(np.array(template.convert("RGB")), cv2.COLOR_RGB2BGR)
 
@@ -32,16 +34,18 @@ def _find_template_in_pil(
     if th > ih or tw > iw:
         return None
 
-    try:
-        img_gray = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2GRAY)
-        tpl_gray = cv2.cvtColor(tpl, cv2.COLOR_BGR2GRAY)
-    except Exception:
-        img_gray = cv2.cvtColor(img_bgr.copy(), cv2.COLOR_BGR2GRAY)
-        tpl_gray = cv2.cvtColor(tpl.copy(), cv2.COLOR_BGR2GRAY)
+    def _grayscale():
+        try:
+            img_gray = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2GRAY)
+            tpl_gray = cv2.cvtColor(tpl, cv2.COLOR_BGR2GRAY)
+        except Exception:
+            img_gray = cv2.cvtColor(img_bgr.copy(), cv2.COLOR_BGR2GRAY)
+            tpl_gray = cv2.cvtColor(tpl.copy(), cv2.COLOR_BGR2GRAY)
 
-    res = cv2.matchTemplate(img_gray, tpl_gray, cv2.TM_CCOEFF_NORMED)
+        res = cv2.matchTemplate(img_gray, tpl_gray, cv2.TM_CCOEFF_NORMED)
+        return res
 
-    if cv2.minMaxLoc(res)[1] >= threshold:
+    def _color():
         # 转到 LAB 色彩空间以获得对颜色感知更稳健的结果
         try:
             img_cs = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2Lab)
@@ -70,6 +74,18 @@ def _find_template_in_pil(
                 res = weights[c] * res_c
             else:
                 res = res + weights[c] * res_c
+        return res
+
+    if mode == "grayscale":
+        res = _grayscale()
+
+    if mode == "color":
+        res = _color()
+
+    if mode == "both":
+        res = _grayscale()
+        if cv2.minMaxLoc(res)[1] >= threshold:
+            res = _color()
 
     # 查找最佳匹配
     min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(res)
@@ -79,7 +95,7 @@ def _find_template_in_pil(
     w, h = tw, th
 
     if DEBUG and debug_out:
-        print(f"Template {debug_out} match max_val: {max_val:.4f}")
+        logging.debug(f"Template {debug_out} match max_val: {max_val:.4f}")
         vis = cv2.cvtColor(np.array(pil_image.convert("RGB")), cv2.COLOR_RGB2BGR)
         cv2.rectangle(vis, (left, top), (left + w, top + h), (0, 0, 255), 2)
         score_text = f"{max_val:.3f}"
@@ -95,7 +111,7 @@ def _find_template_in_pil(
         )
         ensure_dir(debug_out)
         cv2.imwrite(debug_out, vis)
-        print(f"Saved debug image -> {debug_out} (max_val={max_val})")
+        logging.debug(f"Saved debug image -> {debug_out} (max_val={max_val})")
 
     if max_val < threshold:
         return None
@@ -114,25 +130,26 @@ def _get_mss_instance():
         _MSS_INSTANCE = mss.mss()
     return _MSS_INSTANCE
 
-
-def _screenshot_mss(left, top, width, height, out):
+@time_it()
+def _screenshot_mss(left, top, width, height):
     sct = _get_mss_instance()  # 复用实例，提升性能
     monitor = {"left": left, "top": top, "width": width, "height": height}
     sct_img = sct.grab(monitor)
     # 修正颜色格式
     img = Image.frombytes("RGB", sct_img.size, sct_img.bgra, "raw", "BGRX")
 
-    if DEBUG and out:
-        ensure_dir(out)
-        img.save(out)  # 直接用 PIL 保存
-        print(f"Saved debug image -> {out}")
-
     return img
 
 
-@time_it()
 def screenshot(left, top, width, height, out):
-    return _screenshot_mss(left, top, width, height, out)
+    img = _screenshot_mss(left, top, width, height)
+
+    if DEBUG and out:
+        ensure_dir(out)
+        img.save(out)  # 直接用 PIL 保存
+        logging.debug(f"Saved debug image -> {out}")
+
+    return img
 
 
 def to_screen_point(offset, region):
@@ -153,6 +170,7 @@ def find_image_in_region(
     loop_check=False,
     check_interval=0.1,
     timeout=5.0,
+    mode: Literal["color", "grayscale", "both"] = "both",
 ):
     """在指定区域内查找图像模板，返回屏幕坐标点或 None"""
     ensure_dir("tmp")
@@ -164,7 +182,7 @@ def find_image_in_region(
     def _detect_once():
         sct = screenshot(left, top, width, height, debug_screenshot_out)
         result = _find_template_in_pil(
-            sct, image, threshold=threshold, debug_out=debug_find_out
+            sct, image, threshold=threshold, debug_out=debug_find_out, mode=mode
         )
         return to_screen_point((region[0], region[1]), result) if result else None
 
