@@ -16,8 +16,7 @@ def time_it(log_fn=logging.debug):
             t0 = time.perf_counter()
             res = func(*args, **kwargs)
             t1 = time.perf_counter()
-            if DEBUG:
-                log_fn(f"{func.__name__} took {t1-t0:.6f}s")
+            log_fn(f"{func.__name__} took {t1-t0:.6f}s")
             return res
 
         return wrapper
