@@ -11,9 +11,11 @@ def work_in_process(fn):
         tmp = Process(target=fn, daemon=True)
         if _worker and _worker.is_alive():
             logging.info("Worker is already running.")
-            return
+            return _worker
         _worker = tmp
         _worker.start()
+
+        return _worker
 
     return starter
 

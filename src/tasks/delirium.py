@@ -12,7 +12,9 @@ class DeliriumTask(Task):
             logging.info("当前页面不是使用迷幻药页面，无法启动。")
             return
 
-        logging.info("将要涂油的物品放到背包前四格，分别是<物品><迷幻药1><迷幻药2><迷幻药3>")
+        logging.info(
+            "将要涂油的物品放到背包前四格，分别是<物品><迷幻药1><迷幻药2><迷幻药3>"
+        )
 
         self.use_delirium()
 
@@ -93,3 +95,9 @@ class DeliriumTask(Task):
             else:
                 logging.info("未找到使用按钮，使用迷幻药结束")
                 return
+
+
+if __name__ == "__main__":
+    task = DeliriumTask()
+    if task.is_find():
+        task.execute()

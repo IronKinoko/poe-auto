@@ -74,7 +74,7 @@ def load_img(path):
 
 
 def init_logs():
-    ensure_dir("logs")
+    ensure_dir("logs/poe-auto.log")
 
     logging.basicConfig(
         filename=f"logs/poe-auto.log",

@@ -85,7 +85,7 @@ class MergeTask(Task):
                 chongzhu_template,
                 threshold=0.7,
                 debug_out_name="chongzhu",
-                mode="grayscale"
+                mode="grayscale",
             )
 
             if not point:
@@ -162,3 +162,9 @@ class MergeTask(Task):
 
             if not self.add_material_from_bag(template):
                 break
+
+
+if __name__ == "__main__":
+    task = MergeTask()
+    if task.is_find():
+        task.execute()

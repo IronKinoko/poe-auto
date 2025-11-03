@@ -89,3 +89,9 @@ class CurrencyTask(Task):
                 mode="grayscale",
             )
             click(point, ctrl=True)
+
+
+if __name__ == "__main__":
+    task = CurrencyTask()
+    if task.is_find():
+        task.execute()

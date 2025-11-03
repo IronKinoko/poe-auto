@@ -173,7 +173,6 @@ def find_image_in_region(
     mode: Literal["color", "grayscale", "both"] = "both",
 ):
     """在指定区域内查找图像模板，返回屏幕坐标点或 None"""
-    ensure_dir("tmp")
     debug_screenshot_out = f"tmp/{debug_out_name}_screenshot.png"
     debug_find_out = f"tmp/{debug_out_name}_find.png"
     region = region or (0, 0, pyautogui.size().width, pyautogui.size().height)
