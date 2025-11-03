@@ -37,7 +37,8 @@ class CurrencyTask(Task):
         anjie_name_template = self.load_img("/assets/currency/anjie_name.png")
         start = time.time()
         now = time.time()
-        for _count in range(60):
+        _count = 0
+        while True:
             if _count > 0:
                 diff = time.time() - now
                 now = time.time()
@@ -89,6 +90,8 @@ class CurrencyTask(Task):
                 mode="grayscale",
             )
             click(point, ctrl=True)
+
+            _count += 1
 
 
 if __name__ == "__main__":
