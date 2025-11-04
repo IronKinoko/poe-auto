@@ -122,15 +122,18 @@ class MergeTask(Task):
         self.summary_info = {
             "total_merged": 0,
             "start_time": time.time(),
-            "total_time": 0.0,
+            "last_time": time.time(),
         }
 
     def report_progress(self):
         self.summary_info["total_merged"] += 1
-        self.summary_info["total_time"] = time.time() - self.summary_info["start_time"]
-        logging.info(
-            f"------ total: {self.summary_info['total_merged']} avg: {self.summary_info['total_time'] / self.summary_info['total_merged']:.2f}/s ------"
-        )
+        current_time = time.time()
+        diff = current_time - self.summary_info["last_time"]
+        self.summary_info["last_time"] = current_time
+        use_time = self.summary_info["last_time"] - self.summary_info["start_time"]
+        count = self.summary_info["total_merged"]
+
+        logging.info(f"Total: {count} Avg: {use_time / count:.2f}/s Diff: {diff:.2f}s")
 
     def auto_merge(self, template: Image.Image):
         btn_template = self.load_img("/assets/chongzhu/hecheng.png")
