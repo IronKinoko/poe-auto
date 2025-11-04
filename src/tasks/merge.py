@@ -6,11 +6,14 @@ import pyautogui
 from src.core.click import click
 from src.core.screen import find_image_in_region, screenshot
 from src.tasks.base import Task
+from src.utils.common import until
 
 
 class MergeTask(Task):
     def execute(self):
         template = screenshot(967, 1391, 34, 34, "tmp/template.png")
+
+        self._init_summary()
         while True:
             self.auto_merge(template)
             time.sleep(1)
@@ -98,10 +101,6 @@ class MergeTask(Task):
                 logging.info("未找到重铸界面，结束")
                 break
 
-            for i in range(3):
-                self.add_material_from_bag(template)
-                time.sleep(0.25)
-
     def is_find(self, loop_check=False):
         point = self.find_top_point(loop_check)
         if point:
@@ -119,31 +118,27 @@ class MergeTask(Task):
         )
         return point
 
+    def _init_summary(self):
+        self.summary_info = {
+            "total_merged": 0,
+            "start_time": time.time(),
+            "total_time": 0.0,
+        }
+
+    def report_progress(self):
+        self.summary_info["total_merged"] += 1
+        self.summary_info["total_time"] = time.time() - self.summary_info["start_time"]
+        logging.info(
+            f"------ total: {self.summary_info['total_merged']} avg: {self.summary_info['total_time'] / self.summary_info['total_merged']:.2f}/s ------"
+        )
+
     def auto_merge(self, template: Image.Image):
         btn_template = self.load_img("/assets/chongzhu/hecheng.png")
-        empty_result_template = self.load_img("/assets/chongzhu/empty_result.png")
 
-        _count = 0
-        start = time.time()
-        now = time.time()
         while True:
-            if _count > 0:
-                diff = time.time() - now
-                now = time.time()
-                ts = time.strftime("%H:%M:%S", time.localtime(now))
-                logging.info(
-                    f"------ {ts} diff: {diff:.2f}s  sum: {(now - start):.2f}s ------"
-                )
-
             # 检查是否可以合成
-            point = find_image_in_region(
-                (1190, 750, 140, 140),
-                empty_result_template,
-                threshold=0.8,
-                debug_out_name="empty_result",
-            )
-            if not point:
-                click((1254, 828), ctrl=True)
+            if not self.check_result_empty():
+                self.collect_result()
 
             point = find_image_in_region(
                 (1085, 1691, 350, 80),
@@ -152,16 +147,34 @@ class MergeTask(Task):
                 debug_out_name="hecheng",
             )
             if point:
-                _count += 1
-                logging.info(f"第 {_count} 次合成")
                 click(point)
 
-                time.sleep(0.7)
-                click((1254, 828), ctrl=True)
+                self.collect_result()
+                self.report_progress()
+
                 continue
 
             if not self.add_material_from_bag(template):
                 break
+
+    def check_result_empty(self) -> bool:
+        point = find_image_in_region(
+            (1190, 750, 140, 140),
+            self.load_img("/assets/chongzhu/empty_result.png"),
+            debug_out_name="empty_result_check",
+            mode="grayscale",
+        )
+        return bool(point)
+
+    def collect_result(self):
+        is_empty = False
+        while True:
+            if not self.check_result_empty():
+                is_empty = True
+                click((1254, 828), ctrl=True)
+            else:
+                if is_empty:
+                    break
 
 
 if __name__ == "__main__":
