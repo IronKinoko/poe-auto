@@ -1,4 +1,3 @@
-import logging
 import time
 import pyautogui
 import tkinter as tk
@@ -148,7 +147,7 @@ class SelectorApp:
         self.root.quit()
 
     def _cancel(self):
-        logging.info("已取消")
+        print("已取消")
         self.result = None
         self.root.quit()
 
@@ -234,15 +233,15 @@ class SelectorApp:
 
 
 def main():
-    logging.info("正在截取全屏...")
+    print("正在截取全屏...")
     time.sleep(0.05)
     img = capture_fullscreen()
     app = SelectorApp(img)
     result = app.run()
     if result:
-        logging.info(f"选区结果: {result}")
+        print(f"选区结果: {result}")
     else:
-        logging.info("未选择任何区域。")
+        print("未选择任何区域。")
 
 
 if __name__ == "__main__":

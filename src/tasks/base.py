@@ -90,7 +90,7 @@ class Task:
         point = find_image_in_region(
             (2537, 1180, 1300, 560),
             template,
-            threshold=0.93,
+            threshold=0.88,
             debug_out_name="bag",
         )
 

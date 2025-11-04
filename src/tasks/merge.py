@@ -11,7 +11,7 @@ from src.utils.common import until
 
 class MergeTask(Task):
     def execute(self):
-        template = screenshot(967, 1391, 34, 34, "tmp/template.png")
+        template = screenshot(969, 1387, 38, 31, "tmp/template.png")
 
         self._init_summary()
         while True:
