@@ -100,4 +100,4 @@ class DeliriumTask(Task):
 if __name__ == "__main__":
     task = DeliriumTask()
     if task.is_find():
-        task.execute()
+        task.run()

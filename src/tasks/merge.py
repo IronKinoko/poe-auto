@@ -183,4 +183,4 @@ class MergeTask(Task):
 if __name__ == "__main__":
     task = MergeTask()
     if task.is_find():
-        task.execute()
+        task.run()

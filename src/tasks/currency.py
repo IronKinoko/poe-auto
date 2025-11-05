@@ -97,4 +97,4 @@ class CurrencyTask(Task):
 if __name__ == "__main__":
     task = CurrencyTask()
     if task.is_find():
-        task.execute()
+        task.run()
