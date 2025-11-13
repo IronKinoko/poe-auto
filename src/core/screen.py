@@ -35,45 +35,15 @@ def _find_template_in_pil(
         return None
 
     def _grayscale():
-        try:
-            img_gray = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2GRAY)
-            tpl_gray = cv2.cvtColor(tpl, cv2.COLOR_BGR2GRAY)
-        except Exception:
-            img_gray = cv2.cvtColor(img_bgr.copy(), cv2.COLOR_BGR2GRAY)
-            tpl_gray = cv2.cvtColor(tpl.copy(), cv2.COLOR_BGR2GRAY)
-
+        img_gray = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2GRAY)
+        tpl_gray = cv2.cvtColor(tpl, cv2.COLOR_BGR2GRAY)
         res = cv2.matchTemplate(img_gray, tpl_gray, cv2.TM_CCOEFF_NORMED)
         return res
 
     def _color():
-        # 转到 LAB 色彩空间以获得对颜色感知更稳健的结果
-        try:
-            img_cs = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2Lab)
-            tpl_cs = cv2.cvtColor(tpl, cv2.COLOR_BGR2Lab)
-        except Exception:
-            # 回退到 BGR（极少出现）
-            img_cs = img_bgr.copy()
-            tpl_cs = tpl.copy()
-
-        # 转为 float32 并归一化到 [0,1]
-        img_cs = img_cs.astype(np.float32) / 255.0
-        tpl_cs = tpl_cs.astype(np.float32) / 255.0
-
-        # 固定等权通道（保持不改变接口）
-        weights = [1.0 / 3.0, 1.0 / 3.0, 1.0 / 3.0]
-
-        res = None
-        for c in range(3):
-            img_ch = (img_cs[:, :, c] * 255).astype(np.uint8)
-            tpl_ch = (tpl_cs[:, :, c] * 255).astype(np.uint8)
-
-            # 不使用 mask，统一用 TM_CCOEFF_NORMED
-            res_c = cv2.matchTemplate(img_ch, tpl_ch, cv2.TM_CCOEFF_NORMED)
-
-            if res is None:
-                res = weights[c] * res_c
-            else:
-                res = res + weights[c] * res_c
+        img_cs = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2Lab)
+        tpl_cs = cv2.cvtColor(tpl, cv2.COLOR_BGR2Lab)
+        res = cv2.matchTemplate(img_cs, tpl_cs, cv2.TM_CCOEFF_NORMED)
         return res
 
     if mode == "grayscale":
@@ -129,6 +99,7 @@ def _get_mss_instance():
 
         _MSS_INSTANCE = mss.mss()
     return _MSS_INSTANCE
+
 
 @time_it()
 def _screenshot_mss(left, top, width, height):
