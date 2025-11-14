@@ -41,8 +41,8 @@ def _find_template_in_pil(
         return res
 
     def _color():
-        img_cs = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2Lab)
-        tpl_cs = cv2.cvtColor(tpl, cv2.COLOR_BGR2Lab)
+        img_cs = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2HSV)
+        tpl_cs = cv2.cvtColor(tpl, cv2.COLOR_BGR2HSV)
         res = cv2.matchTemplate(img_cs, tpl_cs, cv2.TM_CCOEFF_NORMED)
         return res
 
@@ -54,7 +54,7 @@ def _find_template_in_pil(
 
     if mode == "both":
         res = _grayscale()
-        if cv2.minMaxLoc(res)[1] >= threshold:
+        if cv2.minMaxLoc(res)[1] >= threshold - 0.1:
             res = _color()
 
     # 查找最佳匹配
