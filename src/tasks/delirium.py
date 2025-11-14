@@ -56,7 +56,7 @@ class DeliriumTask(Task):
             for point in points if isinstance(points, list) else [points]:
                 click(point, ctrl=True)
 
-        template1 = screenshot(2550, 1200, 30, 80, "tmp/template1.png")
+        template1 = screenshot(2558, 1236, 27, 24, "tmp/template1.png")
         template2 = screenshot(2676, 1237, 50, 30, "tmp/template2.png")
         template3 = screenshot(2784, 1237, 50, 30, "tmp/template3.png")
         template4 = screenshot(2892, 1237, 50, 30, "tmp/template4.png")

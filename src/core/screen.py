@@ -18,30 +18,38 @@ def _find_template_in_pil(
     mode: Literal["color", "grayscale", "both"] = "both",
 ):
     tpl = cv2.cvtColor(np.array(template.convert("RGB")), cv2.COLOR_RGB2BGR)
-
     # 如果模板是 4 通道（含 alpha），丢弃 alpha 通道，转换为 3 通道 BGR
     if tpl.ndim == 3 and tpl.shape[2] == 4:
         tpl = tpl[:, :, :3]
     elif tpl.ndim == 2:
         tpl = cv2.cvtColor(tpl, cv2.COLOR_GRAY2BGR)
 
-    # PIL -> BGR (OpenCV 使用 BGR)
-    img_bgr = cv2.cvtColor(np.array(pil_image.convert("RGB")), cv2.COLOR_RGB2BGR)
+    def _smooth(mat, bilateral=False, blur_kernel=0):
+        if bilateral:
+            return cv2.bilateralFilter(mat, d=7, sigmaColor=50, sigmaSpace=5)
+        if blur_kernel and blur_kernel >= 3:
+            k = blur_kernel if blur_kernel % 2 else blur_kernel + 1
+            return cv2.GaussianBlur(mat, (k, k), 0)
+        return mat
+
+    tpl = _smooth(tpl, blur_kernel=3)
+    source_bgr = cv2.cvtColor(np.array(pil_image.convert("RGB")), cv2.COLOR_RGB2BGR)
+    source_bgr = _smooth(source_bgr, blur_kernel=3)
 
     # 如果模板比截图大，直接返回 None
-    ih, iw = img_bgr.shape[:2]
+    ih, iw = source_bgr.shape[:2]
     th, tw = tpl.shape[:2]
     if th > ih or tw > iw:
         return None
 
     def _grayscale():
-        img_gray = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2GRAY)
+        img_gray = cv2.cvtColor(source_bgr, cv2.COLOR_BGR2GRAY)
         tpl_gray = cv2.cvtColor(tpl, cv2.COLOR_BGR2GRAY)
         res = cv2.matchTemplate(img_gray, tpl_gray, cv2.TM_CCOEFF_NORMED)
         return res
 
     def _color():
-        img_cs = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2HSV)
+        img_cs = cv2.cvtColor(source_bgr, cv2.COLOR_BGR2HSV)
         tpl_cs = cv2.cvtColor(tpl, cv2.COLOR_BGR2HSV)
         res = cv2.matchTemplate(img_cs, tpl_cs, cv2.TM_CCOEFF_NORMED)
         return res
@@ -66,19 +74,29 @@ def _find_template_in_pil(
 
     if DEBUG and debug_out:
         logging.debug(f"Template {debug_out} match max_val: {max_val:.4f}")
+
         vis = cv2.cvtColor(np.array(pil_image.convert("RGB")), cv2.COLOR_RGB2BGR)
-        cv2.rectangle(vis, (left, top), (left + w, top + h), (0, 0, 255), 2)
-        score_text = f"{max_val:.3f}"
-        cv2.putText(
-            vis,
-            score_text,
-            (left, max(top - 8, 16)),
-            cv2.FONT_HERSHEY_SIMPLEX,
-            0.6,
-            (0, 255, 255),
-            1,
-            cv2.LINE_AA,
-        )
+        loc = np.where(res >= 0.5)
+        pts = list(zip(*loc[::-1]))
+        if pts:
+            rects = [[pt[0], pt[1], w, h] for pt in pts]
+            grouped, _ = cv2.groupRectangles(rects + rects, groupThreshold=1, eps=0.5)
+            if len(grouped):
+                pts = [(int(x), int(y)) for x, y, _, _ in grouped]
+        for pt in pts:
+            _max_val = cv2.minMaxLoc(res[pt[1] : pt[1] + h, pt[0] : pt[0] + w])[1]
+            color = (0, 255, 0) if _max_val >= threshold else (0, 255, 255)
+            cv2.rectangle(vis, pt, (pt[0] + w, pt[1] + h), color, 1)
+            cv2.putText(
+                vis,
+                f"{_max_val:.3f}",
+                (pt[0], max(pt[1] - 8, 16)),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.5,
+                color,
+                1,
+                cv2.LINE_AA,
+            )
         ensure_dir(debug_out)
         cv2.imwrite(debug_out, vis)
         logging.debug(f"Saved debug image -> {debug_out} (max_val={max_val})")
