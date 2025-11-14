@@ -57,9 +57,9 @@ class DeliriumTask(Task):
                 click(point, ctrl=True)
 
         template1 = screenshot(2558, 1236, 27, 24, "tmp/template1.png")
-        template2 = screenshot(2676, 1237, 50, 30, "tmp/template2.png")
-        template3 = screenshot(2784, 1237, 50, 30, "tmp/template3.png")
-        template4 = screenshot(2892, 1237, 50, 30, "tmp/template4.png")
+        template2 = screenshot(2676, 1237, 30, 30, "tmp/template2.png")
+        template3 = screenshot(2784, 1237, 30, 30, "tmp/template3.png")
+        template4 = screenshot(2892, 1237, 30, 30, "tmp/template4.png")
         btn_template = self.load_img("/assets/delirium/dizhu.png")
 
         start = time.time()

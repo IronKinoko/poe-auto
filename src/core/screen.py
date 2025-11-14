@@ -24,34 +24,52 @@ def _find_template_in_pil(
     elif tpl.ndim == 2:
         tpl = cv2.cvtColor(tpl, cv2.COLOR_GRAY2BGR)
 
-    def _smooth(mat, bilateral=False, blur_kernel=0):
-        if bilateral:
-            return cv2.bilateralFilter(mat, d=7, sigmaColor=50, sigmaSpace=5)
-        if blur_kernel and blur_kernel >= 3:
-            k = blur_kernel if blur_kernel % 2 else blur_kernel + 1
-            return cv2.GaussianBlur(mat, (k, k), 0)
-        return mat
-
-    tpl = _smooth(tpl, blur_kernel=3)
-    source_bgr = cv2.cvtColor(np.array(pil_image.convert("RGB")), cv2.COLOR_RGB2BGR)
-    source_bgr = _smooth(source_bgr, blur_kernel=3)
+    _kernel = (5, 5)
+    tpl = cv2.GaussianBlur(tpl, _kernel, 0)
+    img_bgr = cv2.cvtColor(np.array(pil_image.convert("RGB")), cv2.COLOR_RGB2BGR)
+    img_bgr = cv2.GaussianBlur(img_bgr, _kernel, 0)
 
     # 如果模板比截图大，直接返回 None
-    ih, iw = source_bgr.shape[:2]
+    ih, iw = img_bgr.shape[:2]
     th, tw = tpl.shape[:2]
     if th > ih or tw > iw:
         return None
 
     def _grayscale():
-        img_gray = cv2.cvtColor(source_bgr, cv2.COLOR_BGR2GRAY)
+        img_gray = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2GRAY)
         tpl_gray = cv2.cvtColor(tpl, cv2.COLOR_BGR2GRAY)
         res = cv2.matchTemplate(img_gray, tpl_gray, cv2.TM_CCOEFF_NORMED)
         return res
 
     def _color():
-        img_cs = cv2.cvtColor(source_bgr, cv2.COLOR_BGR2HSV)
-        tpl_cs = cv2.cvtColor(tpl, cv2.COLOR_BGR2HSV)
-        res = cv2.matchTemplate(img_cs, tpl_cs, cv2.TM_CCOEFF_NORMED)
+        # 转到 LAB 色彩空间以获得对颜色感知更稳健的结果
+        try:
+            img_cs = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2Lab)
+            tpl_cs = cv2.cvtColor(tpl, cv2.COLOR_BGR2Lab)
+        except Exception:
+            # 回退到 BGR（极少出现）
+            img_cs = img_bgr.copy()
+            tpl_cs = tpl.copy()
+
+        # 转为 float32 并归一化到 [0,1]
+        img_cs = img_cs.astype(np.float32) / 255.0
+        tpl_cs = tpl_cs.astype(np.float32) / 255.0
+
+        # 固定等权通道（保持不改变接口）
+        weights = [1.0 / 3.0, 1.0 / 3.0, 1.0 / 3.0]
+
+        res = None
+        for c in range(3):
+            img_ch = (img_cs[:, :, c] * 255).astype(np.uint8)
+            tpl_ch = (tpl_cs[:, :, c] * 255).astype(np.uint8)
+
+            # 不使用 mask，统一用 TM_CCOEFF_NORMED
+            res_c = cv2.matchTemplate(img_ch, tpl_ch, cv2.TM_CCOEFF_NORMED)
+
+            if res is None:
+                res = weights[c] * res_c
+            else:
+                res = res + weights[c] * res_c
         return res
 
     if mode == "grayscale":
@@ -76,7 +94,7 @@ def _find_template_in_pil(
         logging.debug(f"Template {debug_out} match max_val: {max_val:.4f}")
 
         vis = cv2.cvtColor(np.array(pil_image.convert("RGB")), cv2.COLOR_RGB2BGR)
-        loc = np.where(res >= 0.5)
+        loc = np.where(res >= 0.7)
         pts = list(zip(*loc[::-1]))
         if pts:
             rects = [[pt[0], pt[1], w, h] for pt in pts]
@@ -104,7 +122,7 @@ def _find_template_in_pil(
     if max_val < threshold:
         return None
 
-    return (int(left), int(top), w, h)
+    return (int(left), int(top), w, h, max_val)
 
 
 _MSS_INSTANCE = None
@@ -144,7 +162,7 @@ def screenshot(left, top, width, height, out):
 def to_screen_point(offset, region):
     """将区域内坐标转换为屏幕坐标"""
     x, y = offset
-    left, top, w, h = region
+    left, top, w, h, _ = region
     return (
         int(left + x + w / 2 + random.randint(-3, 3)),
         int(top + y + h / 2 + random.randint(-3, 3)),
