@@ -1,7 +1,7 @@
 import logging
-import math
 import pyglet
 import pyautogui
+import sys
 from PIL import Image
 
 from src.core.screen import screenshot
@@ -12,9 +12,30 @@ class PygletSelector:
         self.img = pil_image.convert("RGBA")
         self.screen_w, self.screen_h = pyautogui.size()
 
-        # pyglet 窗口
-        self.window = pyglet.window.Window(fullscreen=True, vsync=True)
+        self.window = pyglet.window.Window(
+            width=self.screen_w,
+            height=self.screen_h + 1,
+            style=pyglet.window.Window.WINDOW_STYLE_BORDERLESS,
+        )
+
+        if sys.platform == "win32":
+
+            import ctypes
+
+            hwnd = self.window._hwnd
+            user32 = ctypes.windll.user32
+
+            GWL_EXSTYLE = -20
+            WS_EX_TOOLWINDOW = 0x00000080  # 作为工具窗体，不在任务栏/Alt-Tab显示
+            WS_EX_APPWINDOW = 0x00040000  # 在任务栏显示（需要清除）
+
+            # 读/改扩展样式
+            ex = user32.GetWindowLongW(hwnd, GWL_EXSTYLE)
+            ex = (ex | WS_EX_TOOLWINDOW) & ~WS_EX_APPWINDOW
+            user32.SetWindowLongW(hwnd, GWL_EXSTYLE, ex)
+
         self.window.set_mouse_visible(True)
+        self.window.set_location(0, 0)
 
         # 将 PIL 数据转换为 pyglet image（使用 pitch 负值可避免垂直翻转问题）
         data = self.img.tobytes()
@@ -100,12 +121,12 @@ class PygletSelector:
 
             screen_box = self.get_screen_box()
             if screen_box:
-                font_size = math.ceil(12 * self.window.scale)
+                font_size = 12
                 sx, sy, sw, sh = screen_box
                 pyglet.text.Label(
                     f"{sw}*{sh} ({sx},{sy})",
                     x=x,
-                    y=min(y + h + 4 * self.window.scale, win_h - font_size),
+                    y=min(y + h + 4, win_h - font_size),
                     color=(255, 255, 255, 255),
                     font_size=font_size,
                 ).draw()
@@ -131,7 +152,7 @@ class PygletSelector:
         box = self.get_box()
         if not box:
             return None
-        x, y, w, h = tuple(int(round(x / self.window.scale)) for x in box)
+        x, y, w, h = box
         sw, sy = pyautogui.size()
         return (x, sy - y - h, w, h)
 
