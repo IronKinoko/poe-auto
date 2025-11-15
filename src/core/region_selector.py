@@ -1,248 +1,147 @@
 import logging
+import math
+import pyglet
 import pyautogui
-import tkinter as tk
-import time
-from PIL import Image, ImageTk, ImageDraw
-from src.utils.common import init_logs
+from PIL import Image
+
 from src.core.screen import screenshot
 
 
-def capture_fullscreen():
-    # 直接使用 pyautogui 截取全屏，返回 PIL.Image
-    return screenshot(0, 0, pyautogui.size().width, pyautogui.size().height)
+class PygletSelector:
+    def __init__(self, pil_image: Image.Image):
+        self.img = pil_image.convert("RGBA")
+        self.screen_w, self.screen_h = pyautogui.size()
 
+        # pyglet 窗口
+        self.window = pyglet.window.Window(fullscreen=True, vsync=True)
+        self.window.set_mouse_visible(True)
 
-class SelectorApp:
-    def __init__(self, pil_image):
-        self.img = pil_image
-        self.root = tk.Tk()
-        self.root.title("屏幕选择器 - 按 ESC 取消")
-        self.root.attributes("-fullscreen", True)
-        self.root.configure(background="black")
-        # 绑定 ESC 取消
-        self.root.bind("<Escape>", lambda e: self._cancel())
+        # 将 PIL 数据转换为 pyglet image（使用 pitch 负值可避免垂直翻转问题）
+        data = self.img.tobytes()
+        self.texture = pyglet.image.ImageData(
+            self.img.size[0], self.img.size[1], "RGBA", data, -self.img.size[0] * 4
+        ).get_texture()
 
-        screen_w = self.root.winfo_screenwidth()
-        screen_h = self.root.winfo_screenheight()
-
-        # 根据屏幕缩放/居中显示截图，并保存映射关系
-        img_w, img_h = self.img.size
-        # 仅当截图大于屏幕时按比例缩小显示，避免超出屏幕
-        scale = min(1.0, screen_w / img_w, screen_h / img_h)
-        self.display_scale = scale
-        if scale < 1.0:
-            disp_w = int(img_w * scale)
-            disp_h = int(img_h * scale)
-            display_img = self.img.resize((disp_w, disp_h), Image.LANCZOS)
-        else:
-            disp_w, disp_h = img_w, img_h
-            display_img = self.img
-
-        # 非全屏：窗口大小与显示图像一致，并居中于屏幕
-        self.offset_x = 0
-        self.offset_y = 0
-        self.photo = ImageTk.PhotoImage(display_img)
-
-        # 设置窗口大小并居中
-        win_x = (screen_w - disp_w) // 2
-        win_y = (screen_h - disp_h) // 2
-        self.root.geometry(f"{disp_w}x{disp_h}+{win_x}+{win_y}")
-        self.root.resizable(False, False)
-        # 保持在最前（可选）
-        self.root.attributes("-topmost", True)
-
-        # Canvas 使用显示图像尺寸
-        self.canvas = tk.Canvas(
-            self.root, width=disp_w, height=disp_h, highlightthickness=0
-        )
-        self.canvas.pack(fill="both", expand=True)
-        # 将截图放到 canvas 背景（左上角）
-        self.canvas.create_image(0, 0, anchor="nw", image=self.photo)
-        # 使用 RGBA overlay（跨平台一致的半透明遮罩）
-        self._disp_w = disp_w
-        self._disp_h = disp_h
-        # overlay (RGBA) references for cross-platform semi-transparent mask
-        self._overlay_img = None
-        self._overlay_tk = None
-        self._overlay_id = None
-        # 用于节流遮罩更新（秒）
-        self._last_mask_update = 0.0
-        self._mask_throttle = 0.03
-
-        # 选择相关
-        self.start_x = None
-        self.start_y = None
-        self.rect_id = None
-
-        # 绑定鼠标事件
-        self.canvas.bind("<ButtonPress-1>", self.on_button_press)
-        self.canvas.bind("<B1-Motion>", self.on_move)
-        self.canvas.bind("<ButtonRelease-1>", self.on_release)
-
-        # 用于结果
+        # 选择状态
+        self.start = None  # (x, y) in window coords (origin=bottom-left)
+        self.current = None
         self.result = None
 
-        # 初始化遮罩（会创建一个半透明的 overlay）
-        self._create_canvas_mask(disp_w, disp_h)
+        # 绑定事件
+        @self.window.event
+        def on_draw():
+            self._on_draw()
 
-    def _display_to_image(self, x, y):
-        """
-        将 canvas（显示）坐标转换为原始截图（屏幕像素）坐标。
-        返回 (x_image, y_image)，并裁剪到图片范围内。
-        """
-        # 减去图片在 canvas 上的偏移
-        dx = x - self.offset_x
-        dy = y - self.offset_y
-        # 限制在显示图片范围内
-        disp_w = int(self.img.size[0] * self.display_scale)
-        disp_h = int(self.img.size[1] * self.display_scale)
-        dx = max(0, min(dx, disp_w))
-        dy = max(0, min(dy, disp_h))
-        # 映射回原始像素坐标
-        if self.display_scale > 0:
-            ix = int(round(dx / self.display_scale))
-            iy = int(round(dy / self.display_scale))
+        @self.window.event
+        def on_mouse_press(x, y, button, modifiers):
+            if button != pyglet.window.mouse.LEFT:
+                return
+            # 记录起点
+            self.start = (x, y)
+            self.current = (x, y)
+
+        @self.window.event
+        def on_mouse_drag(x, y, dx, dy, buttons, modifiers):
+            # 更新选区
+            if self.start:
+                self.current = (x, y)
+
+        @self.window.event
+        def on_mouse_release(x, y, button, modifiers):
+            # 关闭窗口并退出 pyglet 主循环
+            if button != pyglet.window.mouse.LEFT:
+                return
+            try:
+                self.result = self.get_screen_box()
+                self.window.close()
+            except Exception:
+                pass
+            pyglet.app.exit()
+
+        @self.window.event
+        def on_key_press(symbol, modifiers):
+            # ESC 取消
+            if symbol == pyglet.window.key.ESCAPE:
+                self.result = None
+                try:
+                    self.window.close()
+                except Exception:
+                    pass
+                pyglet.app.exit()
+
+    def _on_draw(self):
+        self.window.clear()
+
+        color = (0, 0, 0, 115)
+        win_w, win_h = self.window.size
+        self.texture.blit(0, 0, width=win_w, height=win_h)
+
+        box = self.get_box()
+        if box:
+            x, y, w, h = box
+            border = pyglet.shapes.Box(x, y, w, h, color=(255, 0, 0))
+            border.draw()
+
+            # 绘制遮罩（挖空选区）
+            mask_parts = [
+                pyglet.shapes.Rectangle(0, 0, win_w, y, color=color),
+                pyglet.shapes.Rectangle(0, y, x, h, color=color),
+                pyglet.shapes.Rectangle(x + w, y, win_w - (x + w), h, color=color),
+                pyglet.shapes.Rectangle(
+                    0,
+                    y + h,
+                    win_w,
+                    win_h - (y + h),
+                    color=color,
+                ),
+            ]
+            for part in mask_parts:
+                part.draw()
+
+            screen_box = self.get_screen_box()
+            if screen_box:
+                font_size = math.ceil(12 * self.window.scale)
+                sx, sy, sw, sh = screen_box
+                pyglet.text.Label(
+                    f"{sw}*{sh} ({sx},{sy})",
+                    x=x,
+                    y=min(y + h + 4 * self.window.scale, win_h - font_size),
+                    color=(255, 255, 255, 255),
+                    font_size=font_size,
+                ).draw()
+
         else:
-            ix, iy = int(dx), int(dy)
-        # 再次裁剪到原始图片范围
-        ix = max(0, min(ix, self.img.size[0]))
-        iy = max(0, min(iy, self.img.size[1]))
-        return ix, iy
+            mask = pyglet.shapes.Rectangle(0, 0, win_w, win_h, color=color)
+            mask.draw()
 
-    def on_button_press(self, event):
-        # 使用 canvas 坐标，然后在后续映射为原始坐标
-        self.start_x = self.canvas.canvasx(event.x)
-        self.start_y = self.canvas.canvasy(event.y)
-        # 新建矩形（基于显示坐标）
-        if self.rect_id:
-            self.canvas.delete(self.rect_id)
-        self.rect_id = self.canvas.create_rectangle(
-            self.start_x,
-            self.start_y,
-            self.start_x,
-            self.start_y,
-            outline="red",
-            width=2,
-        )
-        # 更新遮罩（canvas 方案），挖空初始点（0 大小）
-        self._update_canvas_mask(self.start_x, self.start_y, self.start_x, self.start_y)
+    def get_box(self):
+        if self.start and self.current:
+            x1 = min(self.start[0], self.current[0])
+            y1 = min(self.start[1], self.current[1])
+            x2 = max(self.start[0], self.current[0])
+            y2 = max(self.start[1], self.current[1])
+            width = x2 - x1
+            height = y2 - y1
+            return (x1, y1, width, height)
+        return None
 
-    def on_move(self, event):
-        if not self.rect_id:
-            return
-        cur_x = self.canvas.canvasx(event.x)
-        cur_y = self.canvas.canvasy(event.y)
-
-        now = time.perf_counter()
-        if now - self._last_mask_update < self._mask_throttle:
-            return
-        self._last_mask_update = now
-
-        # 更新矩形（显示坐标）
-        self.canvas.coords(self.rect_id, self.start_x, self.start_y, cur_x, cur_y)
-        # 延迟/节流更新遮罩：记录最新坐标并在短延迟后一次性更新
-        self._update_canvas_mask(self.start_x, self.start_y, cur_x, cur_y)
-        logging.info(f"更新遮罩耗时: {time.perf_counter() - now:.4f} 秒")
-
-    def on_release(self, event):
-        if not self.rect_id:
-            return
-        end_x = self.canvas.canvasx(event.x)
-        end_y = self.canvas.canvasy(event.y)
-        # 将显示坐标转换为原始截图坐标
-        sx, sy = self._display_to_image(self.start_x, self.start_y)
-        ex, ey = self._display_to_image(end_x, end_y)
-        x0 = int(min(sx, ex))
-        y0 = int(min(sy, ey))
-        x1 = int(max(sx, ex))
-        y1 = int(max(sy, ey))
-        w = x1 - x0
-        h = y1 - y0
-        self.result = (x0, y0, w, h)
-        # 关闭窗口并返回
-        # 在退出前移除遮罩和矩形
-        self._clear_mask()
-        self.root.quit()
-
-    def _cancel(self):
-        logging.info("已取消")
-        self.result = None
-        self.root.quit()
+    def get_screen_box(self):
+        box = self.get_box()
+        if not box:
+            return None
+        x, y, w, h = tuple(int(round(x / self.window.scale)) for x in box)
+        sw, sy = pyautogui.size()
+        return (x, sy - y, w, h)
 
     def run(self):
-        self.root.mainloop()
-        self.root.destroy()
+        # 运行并阻塞直到关闭
+        pyglet.app.run()
         return self.result
-
-    # --- Canvas-based mask helpers ---
-    def _create_canvas_mask(self, width, height):
-        # Create initial semi-transparent overlay (RGBA) and place it on canvas
-        overlay = Image.new("RGBA", (width, height), (0, 0, 0, 128))  # alpha=128/255
-        self._overlay_img = overlay
-        self._overlay_tk = ImageTk.PhotoImage(overlay)
-        self._overlay_id = self.canvas.create_image(
-            0, 0, anchor="nw", image=self._overlay_tk
-        )
-        # 如果已经存在选框，确保选框在 overlay 之上
-        if self.rect_id:
-            self.canvas.tag_raise(self.rect_id)
-
-    def _update_canvas_mask(self, x0, y0, x1, y1):
-
-        # 规范化显示坐标
-        lx = int(max(0, min(x0, x1)))
-        ty = int(max(0, min(y0, y1)))
-        rx = int(min(self._disp_w, max(x0, x1)))
-        by = int(min(self._disp_h, max(y0, y1)))
-
-        # 新建 RGBA 遮罩：半透明黑 + 在选区处擦出透明区域
-        overlay = Image.new("RGBA", (self._disp_w, self._disp_h), (0, 0, 0, 128))
-        draw = ImageDraw.Draw(overlay)
-        draw.rectangle([lx, ty, rx, by], fill=(0, 0, 0, 0))
-
-        # 更新 PhotoImage 并刷新 canvas 中的 image
-        self._overlay_img = overlay
-        self._overlay_tk = ImageTk.PhotoImage(overlay)
-        if self._overlay_id is None:
-            self._overlay_id = self.canvas.create_image(
-                0, 0, anchor="nw", image=self._overlay_tk
-            )
-        else:
-            try:
-                self.canvas.itemconfig(self._overlay_id, image=self._overlay_tk)
-            except Exception:
-                # 如果 item 已被删除或其他异常，重建一个
-                self._overlay_id = self.canvas.create_image(
-                    0, 0, anchor="nw", image=self._overlay_tk
-                )
-
-        # 保证矩形边框在 overlay 之上
-        if self.rect_id:
-            self.canvas.tag_raise(self.rect_id)
-
-    def _clear_mask(self):
-        # 删除 overlay image，并释放引用
-        try:
-            if self._overlay_id is not None:
-                self.canvas.delete(self._overlay_id)
-        except Exception:
-            pass
-        self._overlay_id = None
-        self._overlay_tk = None
-        self._overlay_img = None
 
 
 def main():
-    logging.info("正在截取全屏...")
-    img = capture_fullscreen()
-    app = SelectorApp(img)
-    result = app.run()
-    if result:
-        logging.info(f"选区结果: {result}")
-    else:
-        logging.info("未选择任何区域。")
-
-
-if __name__ == "__main__":
-    init_logs()
-    main()
+    logging.info("开始截屏并打开选择器（按 ESC 取消）...")
+    img = screenshot(0, 0, pyautogui.size().width, pyautogui.size().height)
+    sel = PygletSelector(img)
+    res = sel.run()
+    logging.info(res)
