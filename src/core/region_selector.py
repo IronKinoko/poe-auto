@@ -1,12 +1,15 @@
-import time
+import logging
 import pyautogui
 import tkinter as tk
-from PIL import Image, ImageTk
+import time
+from PIL import Image, ImageTk, ImageDraw
+from src.utils.common import init_logs
+from src.core.screen import screenshot
 
 
 def capture_fullscreen():
     # 直接使用 pyautogui 截取全屏，返回 PIL.Image
-    return pyautogui.screenshot()
+    return screenshot(0, 0, pyautogui.size().width, pyautogui.size().height)
 
 
 class SelectorApp:
@@ -55,11 +58,16 @@ class SelectorApp:
         self.canvas.pack(fill="both", expand=True)
         # 将截图放到 canvas 背景（左上角）
         self.canvas.create_image(0, 0, anchor="nw", image=self.photo)
-        # 使用 Canvas 原生图形实现遮罩：用 4 个矩形覆盖非选区（性能更好）
+        # 使用 RGBA overlay（跨平台一致的半透明遮罩）
         self._disp_w = disp_w
         self._disp_h = disp_h
-        self.mask_ids = []
-        self._create_canvas_mask(disp_w, disp_h)
+        # overlay (RGBA) references for cross-platform semi-transparent mask
+        self._overlay_img = None
+        self._overlay_tk = None
+        self._overlay_id = None
+        # 用于节流遮罩更新（秒）
+        self._last_mask_update = 0.0
+        self._mask_throttle = 0.03
 
         # 选择相关
         self.start_x = None
@@ -73,6 +81,9 @@ class SelectorApp:
 
         # 用于结果
         self.result = None
+
+        # 初始化遮罩（会创建一个半透明的 overlay）
+        self._create_canvas_mask(disp_w, disp_h)
 
     def _display_to_image(self, x, y):
         """
@@ -121,10 +132,17 @@ class SelectorApp:
             return
         cur_x = self.canvas.canvasx(event.x)
         cur_y = self.canvas.canvasy(event.y)
+
+        now = time.perf_counter()
+        if now - self._last_mask_update < self._mask_throttle:
+            return
+        self._last_mask_update = now
+
         # 更新矩形（显示坐标）
         self.canvas.coords(self.rect_id, self.start_x, self.start_y, cur_x, cur_y)
         # 延迟/节流更新遮罩：记录最新坐标并在短延迟后一次性更新
         self._update_canvas_mask(self.start_x, self.start_y, cur_x, cur_y)
+        logging.info(f"更新遮罩耗时: {time.perf_counter() - now:.4f} 秒")
 
     def on_release(self, event):
         if not self.rect_id:
@@ -147,7 +165,7 @@ class SelectorApp:
         self.root.quit()
 
     def _cancel(self):
-        print("已取消")
+        logging.info("已取消")
         self.result = None
         self.root.quit()
 
@@ -158,91 +176,73 @@ class SelectorApp:
 
     # --- Canvas-based mask helpers ---
     def _create_canvas_mask(self, width, height):
-        # 创建四个矩形覆盖图像区域（top, left, right, bottom）
-        # 使用半透明黑色 fill。stipple 可以在某些平台上模拟半透明效果更快。
-        fill = "#000000"
-        alpha = 0.5
-        # 我们使用默认的半透明模拟：配置 color 与 stipple
-        # top
-        id_top = self.canvas.create_rectangle(
-            0,
-            0,
-            width,
-            height,
-            fill=fill,
-            stipple="gray50",
-            outline="",
+        # Create initial semi-transparent overlay (RGBA) and place it on canvas
+        overlay = Image.new("RGBA", (width, height), (0, 0, 0, 128))  # alpha=128/255
+        self._overlay_img = overlay
+        self._overlay_tk = ImageTk.PhotoImage(overlay)
+        self._overlay_id = self.canvas.create_image(
+            0, 0, anchor="nw", image=self._overlay_tk
         )
-        self.mask_ids = [id_top]
+        # 如果已经存在选框，确保选框在 overlay 之上
+        if self.rect_id:
+            self.canvas.tag_raise(self.rect_id)
 
     def _update_canvas_mask(self, x0, y0, x1, y1):
-        # 规范化坐标
+
+        # 规范化显示坐标
         lx = int(max(0, min(x0, x1)))
         ty = int(max(0, min(y0, y1)))
         rx = int(min(self._disp_w, max(x0, x1)))
         by = int(min(self._disp_h, max(y0, y1)))
 
-        # 删除旧的四块遮罩（如果存在）
-        for mid in self.mask_ids:
+        # 新建 RGBA 遮罩：半透明黑 + 在选区处擦出透明区域
+        overlay = Image.new("RGBA", (self._disp_w, self._disp_h), (0, 0, 0, 128))
+        draw = ImageDraw.Draw(overlay)
+        draw.rectangle([lx, ty, rx, by], fill=(0, 0, 0, 0))
+
+        # 更新 PhotoImage 并刷新 canvas 中的 image
+        self._overlay_img = overlay
+        self._overlay_tk = ImageTk.PhotoImage(overlay)
+        if self._overlay_id is None:
+            self._overlay_id = self.canvas.create_image(
+                0, 0, anchor="nw", image=self._overlay_tk
+            )
+        else:
             try:
-                self.canvas.delete(mid)
+                self.canvas.itemconfig(self._overlay_id, image=self._overlay_tk)
             except Exception:
-                pass
-        self.mask_ids = []
+                # 如果 item 已被删除或其他异常，重建一个
+                self._overlay_id = self.canvas.create_image(
+                    0, 0, anchor="nw", image=self._overlay_tk
+                )
 
-        # 使用 4 个矩形覆盖非选区：上、下、左、右
-        # top
-        id_top = self.canvas.create_rectangle(
-            0, 0, self._disp_w, ty, fill="#000000", stipple="gray50", outline=""
-        )
-        # bottom
-        id_bottom = self.canvas.create_rectangle(
-            0,
-            by,
-            self._disp_w,
-            self._disp_h,
-            fill="#000000",
-            stipple="gray50",
-            outline="",
-        )
-        # left
-        id_left = self.canvas.create_rectangle(
-            0, ty, lx, by, fill="#000000", stipple="gray50", outline=""
-        )
-        # right
-        id_right = self.canvas.create_rectangle(
-            rx, ty, self._disp_w, by, fill="#000000", stipple="gray50", outline=""
-        )
-
-        self.mask_ids = [id_top, id_bottom, id_left, id_right]
-
-        # 绘制高亮边框
-        # 如果已经有边框 rect (self.rect_id) 我们可以调整其样式；否则确保有明显边界（rect 已由选择逻辑创建）
-        try:
-            self.canvas.itemconfig(self.rect_id, outline="white", width=2)
-        except Exception:
-            pass
+        # 保证矩形边框在 overlay 之上
+        if self.rect_id:
+            self.canvas.tag_raise(self.rect_id)
 
     def _clear_mask(self):
-        for mid in list(self.mask_ids):
-            try:
-                self.canvas.delete(mid)
-            except Exception:
-                pass
-        self.mask_ids = []
+        # 删除 overlay image，并释放引用
+        try:
+            if self._overlay_id is not None:
+                self.canvas.delete(self._overlay_id)
+        except Exception:
+            pass
+        self._overlay_id = None
+        self._overlay_tk = None
+        self._overlay_img = None
 
 
 def main():
-    print("正在截取全屏...")
-    time.sleep(0.05)
+    logging.info("正在截取全屏...")
     img = capture_fullscreen()
     app = SelectorApp(img)
     result = app.run()
     if result:
-        print(f"选区结果: {result}")
+        logging.info(f"选区结果: {result}")
     else:
-        print("未选择任何区域。")
+        logging.info("未选择任何区域。")
 
 
 if __name__ == "__main__":
+    init_logs()
     main()

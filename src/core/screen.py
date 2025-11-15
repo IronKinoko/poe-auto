@@ -148,7 +148,7 @@ def _screenshot_mss(left, top, width, height):
     return img
 
 
-def screenshot(left, top, width, height, out):
+def screenshot(left, top, width, height, out=None):
     img = _screenshot_mss(left, top, width, height)
 
     if DEBUG and out:

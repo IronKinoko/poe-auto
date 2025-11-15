@@ -140,13 +140,13 @@ class Task:
     def _init_summary(self):
         self.summary_info = {
             "total_merged": 0,
-            "start_time": time.time(),
-            "last_time": time.time(),
+            "start_time": time.perf_counter(),
+            "last_time": time.perf_counter(),
         }
 
     def report_progress(self):
         self.summary_info["total_merged"] += 1
-        current_time = time.time()
+        current_time = time.perf_counter()
         diff = current_time - self.summary_info["last_time"]
         self.summary_info["last_time"] = current_time
         use_time = self.summary_info["last_time"] - self.summary_info["start_time"]

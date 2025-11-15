@@ -7,6 +7,7 @@ from pynput import keyboard
 from src.core.worker import stop_worker, work_in_process
 from src.tasks import TASKS
 from src.utils.common import init_logs
+import src.core.region_selector as region_selector
 
 signal.signal(signal.SIGINT, signal.SIG_DFL)
 
@@ -35,9 +36,13 @@ def listen_console_input():
 if __name__ == "__main__":
     try:
         with keyboard.GlobalHotKeys(
-            {"<f9>": work_in_process(auto_detect), "<f10>": stop_worker}
+            {
+                "<f7>": work_in_process(region_selector.main),
+                "<f9>": work_in_process(auto_detect),
+                "<f10>": stop_worker,
+            }
         ) as h:
-            logging.info("Press <f9> to start, <f10> to stop.")
+            logging.info("Press <f7> to select region, <f9> to start, <f10> to stop.")
 
             console_thread = threading.Thread(target=listen_console_input, daemon=True)
             console_thread.start()
