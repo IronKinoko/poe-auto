@@ -1,5 +1,4 @@
 import logging
-import time
 
 from src.core.click import click
 from src.core.screen import find_image_in_region, screenshot
@@ -8,10 +7,6 @@ from src.tasks.base import Task
 
 class DeliriumTask(Task):
     def execute(self):
-        if not self.is_find():
-            logging.info("当前页面不是使用迷幻药页面，无法启动。")
-            return
-
         logging.info(
             "将要涂油的物品放到背包前四格，分别是<物品><迷幻药1><迷幻药2><迷幻药3>"
         )
@@ -62,17 +57,7 @@ class DeliriumTask(Task):
         template4 = screenshot(2892, 1237, 30, 30, "tmp/template4.png")
         btn_template = self.load_img("/assets/delirium/dizhu.png")
 
-        start = time.time()
-        now = time.time()
-        for _count in range(60):
-            if _count > 0:
-                diff = time.time() - now
-                now = time.time()
-                ts = time.strftime("%H:%M:%S", time.localtime(now))
-                logging.info(
-                    f"------ {ts} diff: {diff:.2f}s  sum: {(now - start):.2f}s ------"
-                )
-
+        for _ in range(60):
             for template in [template1, template2, template3, template4]:
                 added = self.add_material_from_bag(template)
                 if not added:
@@ -87,11 +72,11 @@ class DeliriumTask(Task):
             )
 
             if point:
-                logging.info(f"第 {_count+1} 次使用迷幻药")
                 click(point)
-
                 result_point = self.find_result_point()
                 click(result_point, ctrl=True)
+
+                self.report_progress()
             else:
                 logging.info("未找到使用按钮，使用迷幻药结束")
                 return

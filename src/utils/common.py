@@ -73,11 +73,12 @@ def load_img(path):
     return Image.open(project_path(path)).convert("RGB")
 
 
-def init_logs():
-    ensure_dir("logs/poe-auto.log")
+def init_logs(filename="poe-auto"):
+    log_path = f"logs/{filename}.log"
+    ensure_dir(log_path)
 
     logging.basicConfig(
-        filename=f"logs/poe-auto.log",
+        filename=log_path,
         filemode="a",
         format="%(asctime)s - %(levelname)s - %(message)s",
         level=logging.DEBUG if DEBUG else logging.INFO,
@@ -91,3 +92,6 @@ def init_logs():
         logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
     )
     logging.getLogger().addHandler(console_handler)
+
+    logging.getLogger("PIL").setLevel(logging.WARNING)
+    logging.getLogger("PIL.PngImagePlugin").setLevel(logging.ERROR)

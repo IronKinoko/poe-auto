@@ -1,4 +1,5 @@
 import logging
+import time
 import pyautogui
 from abc import abstractmethod
 from src.utils.common import clean_dir, load_img as _load_img
@@ -22,6 +23,7 @@ class Task:
         clean_dir("tmp")
         pyautogui.PAUSE = 0.025
         self.template = {}
+        self._init_summary()
 
     @abstractmethod
     def execute(self):
@@ -134,3 +136,20 @@ class Task:
         logging.info(f"通货箱 at: {point}")
 
         return True
+
+    def _init_summary(self):
+        self.summary_info = {
+            "total_merged": 0,
+            "start_time": time.time(),
+            "last_time": time.time(),
+        }
+
+    def report_progress(self):
+        self.summary_info["total_merged"] += 1
+        current_time = time.time()
+        diff = current_time - self.summary_info["last_time"]
+        self.summary_info["last_time"] = current_time
+        use_time = self.summary_info["last_time"] - self.summary_info["start_time"]
+        count = self.summary_info["total_merged"]
+
+        logging.info(f"Total: {count} Avg: {use_time / count:.2f}/s Diff: {diff:.2f}s")

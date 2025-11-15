@@ -13,7 +13,6 @@ class MergeTask(Task):
     def execute(self):
         template = screenshot(969, 1387, 38, 31, "tmp/template.png")
 
-        self._init_summary()
         while True:
             self.auto_merge(template)
             time.sleep(1)
@@ -117,23 +116,6 @@ class MergeTask(Task):
             loop_check=loop_check,
         )
         return point
-
-    def _init_summary(self):
-        self.summary_info = {
-            "total_merged": 0,
-            "start_time": time.time(),
-            "last_time": time.time(),
-        }
-
-    def report_progress(self):
-        self.summary_info["total_merged"] += 1
-        current_time = time.time()
-        diff = current_time - self.summary_info["last_time"]
-        self.summary_info["last_time"] = current_time
-        use_time = self.summary_info["last_time"] - self.summary_info["start_time"]
-        count = self.summary_info["total_merged"]
-
-        logging.info(f"Total: {count} Avg: {use_time / count:.2f}/s Diff: {diff:.2f}s")
 
     def auto_merge(self, template: Image.Image):
         btn_template = self.load_img("/assets/chongzhu/hecheng.png")
