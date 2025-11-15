@@ -115,6 +115,7 @@ class PygletSelector:
             mask.draw()
 
     def get_box(self):
+        """返回选区在窗口坐标系中的位置和大小 (x, y, width, height)，原点在左下角。"""
         if self.start and self.current:
             x1 = min(self.start[0], self.current[0])
             y1 = min(self.start[1], self.current[1])
@@ -126,12 +127,13 @@ class PygletSelector:
         return None
 
     def get_screen_box(self):
+        """返回选区在屏幕坐标系中的位置和大小 (x, y, width, height)，原点在左上角。"""
         box = self.get_box()
         if not box:
             return None
         x, y, w, h = tuple(int(round(x / self.window.scale)) for x in box)
         sw, sy = pyautogui.size()
-        return (x, sy - y, w, h)
+        return (x, sy - y - h, w, h)
 
     def run(self):
         # 运行并阻塞直到关闭
