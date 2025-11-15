@@ -154,7 +154,7 @@ class PygletSelector:
             return None
         x, y, w, h = box
         sw, sy = pyautogui.size()
-        return (x, sy - y - h, w, h)
+        return (x, max(sy - y - h, 0), w, h)
 
     def run(self):
         # 运行并阻塞直到关闭
